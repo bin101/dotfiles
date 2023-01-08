@@ -1,0 +1,15 @@
+# zsh-users repo
+zsh-users/zsh-completions
+zsh-users/zsh-syntax-highlighting
+zsh-users/zsh-autosuggestions
+
+# now, configure and run compinit to initialize completions
+belak/zsh-utils path:completion
+
+# oh-my-zsh plugins
+ohmyzsh/ohmyzsh path:lib
+ohmyzsh/ohmyzsh path:plugins/gitfast
+ohmyzsh/ohmyzsh path:plugins/extract
+ohmyzsh/ohmyzsh path:plugins/colored-man-pages
+ohmyzsh/ohmyzsh path:plugins/command-not-found
+

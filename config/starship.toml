@@ -1,0 +1,19 @@
+add_newline = false
+continuation_prompt = '▶▶ '
+
+[cmd_duration]
+disabled = true
+
+[git_commit]
+tag_disabled = false
+only_detached = false
+
+[directory]
+read_only = "(ro)"
+
+[username]
+show_always = true
+format = '[$user]($style) on '
+
+[hostname]
+ssh_only = false
