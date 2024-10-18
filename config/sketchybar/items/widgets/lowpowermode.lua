@@ -1,7 +1,8 @@
 local colors = require("colors")
+local icons = require("icons")
 local settings = require("settings")
 
-local label = "?"
+local label = icons.error
 local color = colors.orange
 local modeValue = 0
 
@@ -28,11 +29,11 @@ local lowpowermodebracket = sbar.add("bracket", "widgets.lowpowermode.bracket", 
 local function setModeValue(v)
   modeValue = v
   if v == 1 then
-    label = "L"
+    label = icons.slow
     color = colors.green
     sbar.exec("sudo pmset -a lowpowermode 1")
   else
-    label = "P"
+    label = icons.fast
     color = colors.red
     sbar.exec("sudo pmset -a lowpowermode 0")
   end
