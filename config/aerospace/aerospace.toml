@@ -122,6 +122,7 @@ alt-f = 'fullscreen --no-outer-gaps'
 alt-shift-f = 'macos-native-fullscreen'
 
 ctrl-alt-cmd-r = 'reload-config'
+ctrl-alt-shift-r = 'exec-and-forget  sketchybar --reload'
 
 # programm shortcuts
 cmd-enter = 'exec-and-forget kitty --single-instance -d ~'
