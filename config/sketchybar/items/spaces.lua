@@ -69,7 +69,6 @@ sbar.exec("aerospace list-workspaces --all", function(spaces)
   
     space:subscribe("space_windows_change", function()
       sbar.exec("aerospace list-windows --format %{app-name} --workspace " .. space_name, function(windows)
-        print(windows)
         local no_app = true
         local icon_line = ""
         for app in windows:gmatch("[^\r\n]+") do
