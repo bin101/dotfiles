@@ -1,2 +1,2 @@
 DOTFILES_DIRS="$HOME/.dotfiles $HOME/.dotfiles-private"
-EXCLUDES="README*.md *.bak custom/* Brewfile install.sh"
+EXCLUDES="README*.md *.bak custom/* Brewfile install.sh *.code-workspace"
