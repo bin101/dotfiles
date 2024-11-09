@@ -142,6 +142,10 @@ cmd-h = [] # Disable "hide application"
 4_social = ['built-in']
 
 
+# floating rules
+[[on-window-detected]]
+if.app-id = 'com.apple.finder'
+run = ['layout floating']
 
 # programm workspace rules
 ## web
