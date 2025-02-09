@@ -1,5 +1,5 @@
 # path
-export PATH=$PATH:$HOME/.bin
+export PATH=$PATH:$HOME/.bin:$HOME/tizen-studio/tools/ide/bin:$HOME/tizen-studio/tools
 
 # zsh base dir
 export ZSH_BASE=$HOME/.zsh
