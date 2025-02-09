@@ -85,6 +85,7 @@ outer.right =      20
 [mode.main.binding]
 ctrl-alt-a = 'layout h_accordion'
 ctrl-alt-d = 'layout tiles horizontal vertical'
+ctrl-alt-s = 'balance-sizes'
 
 alt-h = 'focus left'
 alt-j = 'focus down'
