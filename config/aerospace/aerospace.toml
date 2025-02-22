@@ -148,6 +148,10 @@ cmd-h = [] # Disable "hide application"
 if.app-id = 'com.apple.finder'
 run = ['layout floating']
 
+[[on-window-detected]]
+if.app-id = 'com.apple.ActivityMonitor'
+run = ['layout floating']
+
 # programm workspace rules
 ## web
 [[on-window-detected]]
