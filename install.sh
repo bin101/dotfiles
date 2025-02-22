@@ -43,6 +43,9 @@ defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool YES
 # Installing Fonts
 curl -L https://github.com/kvndrsslr/sketchybar-app-font/releases/download/latest/sketchybar-app-font.ttf -o $HOME/Library/Fonts/sketchybar-app-font.ttf
 
+# SbarLua
+(git clone https://github.com/FelixKratz/SbarLua.git /tmp/SbarLua && cd /tmp/SbarLua/ && make install && rm -rf /tmp/SbarLua/)
+
 # Copying and checking out configuration files
 echo "Planting Configuration Files..."
 rcup -v
@@ -50,16 +53,9 @@ source $HOME/.zshrc
 
 # Start Services
 echo "Starting Services (grant permissions)..."
-brew services start skhd
-brew services start fyabai
-brew services start sketchybar
+brew services start felixkratz/formulae/sketchybar
 
-csrutil status
 echo "For the system Java wrappers to find this JDK, symlink it with:\n 'sudo ln -sfn /opt/homebrew/opt/openjdk/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk.jdk'"
-echo "For github bell you need to auth:\n 'gh auth login'"
 echo "Make volume icon in status bar always available in control center"
-echo "Do not forget to disable SIP"
-echo "Add sudoer manually:\n '$(whoami) ALL = (root) NOPASSWD: sha256:$(shasum -a 256 $(which yabai) | awk "{print \$1;}") $(which yabai) --load-sa' to '/private/etc/sudoers.d/yabai'"
-echo "Install Store apps: Wireguard and AusweissApp2"
 echo "Installation complete please restart..."
 
