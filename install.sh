@@ -38,7 +38,12 @@ defaults write com.apple.finder ShowMountedServersOnDesktop -bool false
 defaults write com.apple.finder ShowRemovableMediaOnDesktop -bool false
 defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
 defaults write com.apple.finder ShowStatusBar -bool false
+defaults write com.apple.finder ShowPathbar -bool true
+defaults write com.apple.finder _FXSortFoldersFirst -bool true
+defaults write com.apple.finder CreateDesktop -bool false
 defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool YES
+
+killall Finder
 
 # Installing Fonts
 curl -L https://github.com/kvndrsslr/sketchybar-app-font/releases/download/latest/sketchybar-app-font.ttf -o $HOME/Library/Fonts/sketchybar-app-font.ttf
