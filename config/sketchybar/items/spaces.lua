@@ -1,5 +1,5 @@
 local colors = require("colors")
-local icons = require("icons")
+-- local icons = require("icons")
 local settings = require("settings")
 local app_icons = require("helpers.app_icons")
 
@@ -47,27 +47,8 @@ sbar.exec("aerospace list-workspaces --all", function(spaces)
       script = "",
       width = settings.group_paddings,
     })
-  
-    space:subscribe("aerospace_workspace_change", function(env)
-      local selected = env.FOCUSED_WORKSPACE == space_name
-      local color = selected and colors.grey or colors.bg2
-      space:set({
-        icon = { highlight = selected, },
-        label = { highlight = selected },
-        background = { border_color = selected and colors.black or colors.bg2 }
-      })
-      space_bracket:set({
-        background = { border_color = selected and colors.grey or colors.bg2 }
-      })
-    end)
-  
-    space:subscribe("mouse.clicked", function()
-      sbar.exec("aerospace workspace " .. space_name)
-    end)
-  
-  
-  
-    space:subscribe("space_windows_change", function()
+
+    local function updateSpaceWindows()
       sbar.exec("aerospace list-windows --format %{app-name} --workspace " .. space_name, function(windows)
         local no_app = true
         local icon_line = ""
@@ -85,6 +66,31 @@ sbar.exec("aerospace list-workspaces --all", function(spaces)
           space:set({ label = icon_line })
         end)
       end)
+    end
+
+    -- initial setup
+    updateSpaceWindows()
+
+    -- custom trigger
+    space:subscribe("aerospace_workspace_change", function(env)
+      local selected = env.FOCUSED_WORKSPACE == space_name
+      local color = selected and colors.grey or colors.bg2
+      space:set({
+        icon = { highlight = selected, },
+        label = { highlight = selected },
+        background = { border_color = selected and colors.black or colors.bg2 }
+      })
+      space_bracket:set({
+        background = { border_color = selected and colors.grey or colors.bg2 }
+      })
+    end)
+  
+    space:subscribe("mouse.clicked", function()
+      sbar.exec("aerospace workspace " .. space_name)
+    end)
+  
+    space:subscribe("space_windows_change", function()
+        updateSpaceWindows()
     end)
 
     item_order = item_order .. " " .. space.name .. " " .. space_padding.name
