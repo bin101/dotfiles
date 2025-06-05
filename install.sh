@@ -13,6 +13,10 @@ brew analytics off
 echo "Installing apps..."
 brew bundle install --file=~/.dotfiles/Brewfile
 
+# Install lua packages
+echo "Installing Lua packages..."
+luarocks install luasocket luasec dkjson
+
 # macOS Settings
 echo "Changing macOS defaults..."
 defaults write com.apple.NetworkBrowser BrowseAllInterfaces 1
