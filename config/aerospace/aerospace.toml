@@ -29,7 +29,7 @@ enable-normalization-opposite-orientation-for-nested-containers = false
 # See: https://nikitabobko.github.io/AeroSpace/guide#layouts
 # The 'accordion-padding' specifies the size of accordion padding
 # You can set 0 to disable the padding feature
-accordion-padding = 40
+accordion-padding = 20
 
 # Possible values: tiles|accordion
 default-root-container-layout = 'tiles'
@@ -123,10 +123,10 @@ alt-f = 'fullscreen --no-outer-gaps'
 alt-shift-f = 'macos-native-fullscreen'
 
 ctrl-alt-cmd-r = 'reload-config'
-ctrl-alt-shift-r = 'exec-and-forget  sketchybar --reload'
+ctrl-alt-shift-r = 'exec-and-forget sketchybar --reload'
 
 # programm shortcuts
-cmd-enter = 'exec-and-forget kitty --single-instance -d ~'
+cmd-enter = 'exec-and-forget kitty -d ~'
 cmd-alt-space = 'exec-and-forget open -a Finder.app'
 
 # Disable annoying and useless "hide application" shortcut
