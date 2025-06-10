@@ -168,7 +168,7 @@ endif
 
 
 "" NerdTree options and autocmds
-autocmd VimEnter * NERDTreeFind | wincmd p
+autocmd VimEnter * if !exists('s:std_in') | NERDTree | wincmd p | endif
 " Close the tab if NERDTree is the only window remaining in it.
 autocmd BufEnter * if winnr('$') == 1 && exists('b:NERDTree') && b:NERDTree.isTabTree() | quit | endif
 map ; :Files ~<CR>
