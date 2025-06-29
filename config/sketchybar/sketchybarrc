@@ -1,5 +1,12 @@
 #!/usr/bin/env lua
 
+-- set_paths.lua
+local version = _VERSION:match("%d+%.%d+")
+package.path = os.getenv("HOME") .. '/.luarocks/share/lua/' .. version .. '/?.lua;' ..
+               os.getenv("HOME") .. '/.luarocks/share/lua/' .. version .. '/?/init.lua;' ..
+               package.path
+package.cpath = os.getenv("HOME") .. '/.luarocks/lib/lua/' .. version .. '/?.so;' .. package.cpath
+
 -- Load the sketchybar-package and prepare the helper binaries
 require("helpers")
 require("init")
