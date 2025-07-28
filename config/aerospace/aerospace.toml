@@ -12,7 +12,10 @@ after-login-command = []
 # You can use it to add commands that run after AeroSpace startup.
 # 'after-startup-command' is run after 'after-login-command'
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
-after-startup-command = []
+after-startup-command = [
+    'exec-and-forget borders',
+    'exec-and-forget sketchybar'
+]
 
 # Notify Sketchybar about workspace change
 exec-on-workspace-change = ['/bin/bash', '-c',
@@ -196,3 +199,8 @@ run = ['move-node-to-workspace 4_social']
 [[on-window-detected]]
 if.app-id = 'im.riot.app'
 run = ['move-node-to-workspace 4_social']
+
+[[on-window-detected]]
+if.app-id = 'com.microsoft.rdc.macos'
+if.window-title-regex-substring = '192'
+run = ['layout floating']
