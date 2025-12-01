@@ -45,9 +45,9 @@
     #}}}
     # MISC {{{
         alias enter_matrix='echo -e "\e[32m"; while :; do for i in {1..16}; do r="$(($RANDOM % 2))"; if [[ $(($RANDOM % 5)) == 1 ]]; then if [[ $(($RANDOM % 4)) == 1 ]]; then v+="\e[1m $r   "; else v+="\e[2m $r   "; fi; else v+="     "; fi; done; echo -e "$v"; v=""; done'
-        alias server-update="ansible-playbook -i ~/Repos/ansible/host.yml ~/Repos/ansible/playbooks/updateall.yml"
-        alias server-init="ansible-playbook -i ~/Repos/ansible/host.yml ~/Repos/ansible/playbooks/setup.yml"
-        alias server-migrate-history="ansible-playbook -i ~/Repos/ansible/host.yml ~/Repos/ansible/playbooks/migrateHistory.yml"
+        alias server-update="(cd ~/Repos/ansible && ansible-playbook playbooks/updateall.yml)"
+        alias server-setup="(cd ~/Repos/ansible && ansible-playbook playbooks/setup.yml)"
+        alias server-migrate="(cd ~/Repos/ansible && ansible-playbook playbooks/migrateHistory.yml)"
         alias switchgpgkey="gpg-connect-agent 'scd serialno' 'learn --force' /bye"
         alias pacdiff="sudo DIFFPROG=meld pacdiff"
         alias ranger=". ranger"
