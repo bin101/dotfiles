@@ -7,6 +7,7 @@ export ZSH_BASE=$HOME/.zsh
 # brew completions
 FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"
 export HOMEBREW_NO_ENV_HINTS=TRUE
+export HOMEBREW_DOWNLOAD_CONCURRENCY=auto
 
 # antidote
 # Clone antidote if necessary.
@@ -47,3 +48,8 @@ setopt INC_APPEND_HISTORY
 setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_SAVE_NO_DUPS
 setopt HIST_FIND_NO_DUPS
+
+# pipx
+export PATH="$PATH:/Users/bin101/.local/bin"
+autoload -U compinit && compinit
+eval "$(register-python-argcomplete pipx)"
