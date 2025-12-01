@@ -11,6 +11,8 @@ local icons = {
     slow = "􀓑",
     fast = "􀓏",
     error = "􀆚",
+    unlocked = "􀎤",
+    locked = "􀎡",
 
     switch = {
       on = "􁏮",
