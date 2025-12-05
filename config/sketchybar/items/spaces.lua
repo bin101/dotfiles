@@ -5,6 +5,8 @@ local app_icons = require("helpers.app_icons")
 -- Table to keep track of created workspaces
 local workspaces = {}
 
+sbar.add("item", "spacepadding", { position = "left", width = settings.group_paddings })
+
 local function updateSpaceWindows(space, space_name)
   sbar.exec("aerospace list-windows --format %{app-name} --workspace " .. space_name, function(windows)
     local no_app = true
@@ -156,7 +158,7 @@ function reorderWorkspaces()
   end
 
   if item_order ~= "" then
-    sbar.exec("sketchybar --reorder " .. item_order .. " front_app")
+    sbar.exec("sketchybar --reorder spacepadding " .. item_order .. " front_app")
   end
 end
 
