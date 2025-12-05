@@ -33,7 +33,7 @@ local function createWorkspace(space_name)
   local space = sbar.add("item", "space." .. space_name, {
     icon = {
       font = { family = settings.font.numbers },
-      string = string.sub(space_name, 3),
+      string = space_name,
       padding_left = 7,
       padding_right = 3,
       color = colors.white,
