@@ -120,15 +120,15 @@ on-mode-changed = []
     ctrl-alt-k = 'resize height -100'
     ctrl-alt-l = 'resize width +100'
 
-    alt-1 = 'workspace 1_web'
-    alt-2 = 'workspace 2_media'
-    alt-3 = 'workspace 3_mail'
-    alt-4 = 'workspace 4_social'
+    alt-1 = 'workspace 1'
+    alt-2 = 'workspace 2'
+    alt-3 = 'workspace 3'
+    alt-4 = 'workspace 4'
 
-    alt-shift-1 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 1_web && sketchybar --trigger space_windows_change'
-    alt-shift-2 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 2_media && sketchybar --trigger space_windows_change'
-    alt-shift-3 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 3_mail && sketchybar --trigger space_windows_change'
-    alt-shift-4 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 4_social && sketchybar --trigger space_windows_change'
+    alt-shift-1 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 1 && sketchybar --trigger space_windows_change'
+    alt-shift-2 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 2 && sketchybar --trigger space_windows_change'
+    alt-shift-3 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 3 && sketchybar --trigger space_windows_change'
+    alt-shift-4 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 4 && sketchybar --trigger space_windows_change'
 
     alt-x = 'workspace-back-and-forth'
     alt-space = 'layout floating tiling'
@@ -151,10 +151,10 @@ on-mode-changed = []
 
 
 [workspace-to-monitor-force-assignment]
-    1_web  = ['main', 'built-in']
-    2_media = ['main', 'built-in']
-    3_mail  = ['built-in']
-    4_social = ['built-in']
+    1  = ['main', 'built-in']
+    2 = ['main', 'built-in']
+    3  = ['built-in']
+    4 = ['built-in']
 
 
 # floating rules
@@ -170,50 +170,50 @@ on-mode-changed = []
 ## web
 [[on-window-detected]]
     if.app-id = 'com.google.Chrome'
-    run = ['move-node-to-workspace 1_web']
+    run = ['move-node-to-workspace 1']
 
 ## media
 [[on-window-detected]]
     if.app-id = 'com.microsoft.VSCode'
-    run = ['move-node-to-workspace 2_media']
+    run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
     if.app-id = 'com.spotify.client'
-    run = ['move-node-to-workspace 2_media']
+    run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
     if.app-id = 'tv.jellyfin.player'
-    run = ['move-node-to-workspace 2_media']
+    run = ['move-node-to-workspace 2']
 
 ## mail
 [[on-window-detected]]
     if.app-id = 'org.mozilla.betterbird'
-    run = ['move-node-to-workspace 3_mail']
+    run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
     if.app-id = 'com.apple.iCal'
-    run = ['move-node-to-workspace 3_mail']
+    run = ['move-node-to-workspace 3']
 
 ## social
 [[on-window-detected]]
     if.app-id = 'com.tinyspeck.slackmacgap'
-    run = ['move-node-to-workspace 4_social']
+    run = ['move-node-to-workspace 4']
 
 [[on-window-detected]]
     if.app-id = 'com.hnc.Discord'
-    run = ['move-node-to-workspace 4_social']
+    run = ['move-node-to-workspace 4']
 
 [[on-window-detected]]
     if.app-id = 'org.whispersystems.signal-desktop-beta'
-    run = ['move-node-to-workspace 4_social']
+    run = ['move-node-to-workspace 4']
 
 [[on-window-detected]]
     if.app-id = 'org.whispersystems.signal-desktop'
-    run = ['move-node-to-workspace 4_social']
+    run = ['move-node-to-workspace 4']
 
 [[on-window-detected]]
     if.app-id = 'im.riot.app'
-    run = ['move-node-to-workspace 4_social']
+    run = ['move-node-to-workspace 4']
 
 [[on-window-detected]]
     if.app-id = 'com.microsoft.rdc.macos'
