@@ -156,7 +156,7 @@ function reorderWorkspaces()
   end
 
   if item_order ~= "" then
-    sbar.exec("sketchybar --reorder apple " .. item_order .. " front_app")
+    sbar.exec("sketchybar --reorder " .. item_order .. " front_app")
   end
 end
 
