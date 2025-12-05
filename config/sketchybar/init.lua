@@ -9,7 +9,6 @@ sbar.begin_config()
 require("bar")
 require("default")
 require("items")
-sbar.hotload(true)
 sbar.add("event", "aerospace_workspace_change")
 sbar.end_config()
 
