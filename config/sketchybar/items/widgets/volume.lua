@@ -50,7 +50,7 @@ sbar.add("item", "widgets.volume.padding", {
   width = settings.group_paddings
 })
 
-local volume_slider = sbar.add("slider", popup_width, {
+local volume_slider = sbar.add("slider", "widgets.volume.slider", popup_width, {
   position = "popup." .. volume_bracket.name,
   slider = {
     highlight_color = colors.blue,

@@ -32,7 +32,7 @@ local secureinputbracket = sbar.add("bracket", "widgets.secureinput.bracket", { 
   }
 })
 
-local popup_info = sbar.add("item", {
+local popup_info = sbar.add("item", "widgets.secureinput.popup_info", {
   position = "popup." .. secureinput.name,
   label = {
     string = "Secure Input Inactive",

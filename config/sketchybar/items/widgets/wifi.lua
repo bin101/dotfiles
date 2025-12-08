@@ -8,7 +8,7 @@ sbar.exec("killall network_load >/dev/null; $CONFIG_DIR/helpers/event_providers/
 
 local popup_width = 250
 
-local wifi_up = sbar.add("item", "widgets.wifi1", {
+local wifi_up = sbar.add("item", "widgets.wifi.up", {
   position = "right",
   padding_left = -5,
   width = 0,
@@ -32,7 +32,7 @@ local wifi_up = sbar.add("item", "widgets.wifi1", {
   y_offset = 4,
 })
 
-local wifi_down = sbar.add("item", "widgets.wifi2", {
+local wifi_down = sbar.add("item", "widgets.wifi.down", {
   position = "right",
   padding_left = -5,
   icon = {
@@ -55,7 +55,7 @@ local wifi_down = sbar.add("item", "widgets.wifi2", {
   y_offset = -4,
 })
 
-local wifi = sbar.add("item", "widgets.wifi.padding", {
+local wifi = sbar.add("item", "widgets.wifi_padding", {
   position = "right",
   label = { drawing = false },
 })
@@ -70,7 +70,7 @@ local wifi_bracket = sbar.add("bracket", "widgets.wifi.bracket", {
   popup = { align = "center", height = 30 }
 })
 
-local ssid = sbar.add("item", {
+local ssid = sbar.add("item", "widgets.wifi.ssid", {
   position = "popup." .. wifi_bracket.name,
   icon = {
     font = {
@@ -95,7 +95,7 @@ local ssid = sbar.add("item", {
   }
 })
 
-local hostname = sbar.add("item", {
+local hostname = sbar.add("item", "widgets.wifi.hostname", {
   position = "popup." .. wifi_bracket.name,
   icon = {
     align = "left",
@@ -110,7 +110,7 @@ local hostname = sbar.add("item", {
   }
 })
 
-local ip = sbar.add("item", {
+local ip = sbar.add("item", "widgets.wifi.ip", {
   position = "popup." .. wifi_bracket.name,
   icon = {
     align = "left",
@@ -124,7 +124,7 @@ local ip = sbar.add("item", {
   }
 })
 
-local mask = sbar.add("item", {
+local mask = sbar.add("item", "widgets.wifi.mask", {
   position = "popup." .. wifi_bracket.name,
   icon = {
     align = "left",
@@ -138,7 +138,7 @@ local mask = sbar.add("item", {
   }
 })
 
-local router = sbar.add("item", {
+local router = sbar.add("item", "widgets.wifi.router", {
   position = "popup." .. wifi_bracket.name,
   icon = {
     align = "left",
@@ -152,7 +152,7 @@ local router = sbar.add("item", {
   },
 })
 
-sbar.add("item", { position = "right", width = settings.group_paddings })
+sbar.add("item", "widgets.wifi.padding", { position = "right", width = settings.group_paddings })
 
 wifi_up:subscribe("network_update", function(env)
   local up_color = (env.upload == "000 Bps") and colors.grey or colors.red

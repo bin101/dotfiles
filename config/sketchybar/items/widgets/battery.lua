@@ -15,7 +15,7 @@ local battery = sbar.add("item", "widgets.battery", {
   popup = { align = "center" }
 })
 
-local remaining_time = sbar.add("item", {
+local remaining_time = sbar.add("item", "widgets.battery.remaining_time", {
   position = "popup." .. battery.name,
   icon = {
     string = "Time remaining:",
