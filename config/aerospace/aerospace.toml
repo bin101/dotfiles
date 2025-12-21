@@ -188,32 +188,32 @@ on-mode-changed = []
 ## mail
 [[on-window-detected]]
     if.app-id = 'org.mozilla.betterbird'
-    run = ['move-node-to-workspace 3']
+    run = ['move-node-to-workspace 4']
 
 [[on-window-detected]]
     if.app-id = 'com.apple.iCal'
-    run = ['move-node-to-workspace 3']
+    run = ['move-node-to-workspace 4']
 
 ## social
 [[on-window-detected]]
     if.app-id = 'com.tinyspeck.slackmacgap'
-    run = ['move-node-to-workspace 4']
+    run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
     if.app-id = 'com.hnc.Discord'
-    run = ['move-node-to-workspace 4']
+    run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
     if.app-id = 'org.whispersystems.signal-desktop-beta'
-    run = ['move-node-to-workspace 4']
+    run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
     if.app-id = 'org.whispersystems.signal-desktop'
-    run = ['move-node-to-workspace 4']
+    run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
     if.app-id = 'im.riot.app'
-    run = ['move-node-to-workspace 4']
+    run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
     if.app-id = 'com.microsoft.rdc.macos'
