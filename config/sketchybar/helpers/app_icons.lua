@@ -140,6 +140,7 @@ return {
   ["Google Chrome"] = ":google_chrome:",
   ["Google Chrome Canary"] = ":google_chrome:",
   ["Jellyfin Media Player"] = ":jellyfin:",
+  ["Jellyfin"] = ":jellyfin:",
   ["Zulip"] = ":zulip:",
   ["1Password"] = ":one_password:",
   ["FaceTime"] = ":face_time:",

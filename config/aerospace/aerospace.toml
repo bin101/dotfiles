@@ -185,6 +185,10 @@ on-mode-changed = []
     if.app-id = 'tv.jellyfin.player'
     run = ['move-node-to-workspace 2']
 
+[[on-window-detected]]
+    if.app-id = 'org.jellyfin.JellyfinDesktop'
+    run = ['move-node-to-workspace 2']
+
 ## mail
 [[on-window-detected]]
     if.app-id = 'org.mozilla.betterbird'
