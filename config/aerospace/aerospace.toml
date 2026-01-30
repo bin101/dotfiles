@@ -159,67 +159,55 @@ on-mode-changed = []
 
 # floating rules
 [[on-window-detected]]
-    if.app-id = 'com.apple.finder'
+    if.app-name-regex-substring = 'finder'
     run = ['layout floating']
 
 [[on-window-detected]]
-    if.app-id = 'com.apple.ActivityMonitor'
+    if.app-name-regex-substring = 'activity monitor'
     run = ['layout floating']
-
-# programm workspace rules
-## web
-[[on-window-detected]]
-    if.app-id = 'com.google.Chrome'
-    run = ['move-node-to-workspace 1']
-
-## media
-[[on-window-detected]]
-    if.app-id = 'com.microsoft.VSCode'
-    run = ['move-node-to-workspace 2']
-
-[[on-window-detected]]
-    if.app-id = 'com.spotify.client'
-    run = ['move-node-to-workspace 2']
-
-[[on-window-detected]]
-    if.app-id = 'tv.jellyfin.player'
-    run = ['move-node-to-workspace 2']
-
-[[on-window-detected]]
-    if.app-id = 'org.jellyfin.JellyfinDesktop'
-    run = ['move-node-to-workspace 2']
-
-## mail
-[[on-window-detected]]
-    if.app-id = 'org.mozilla.betterbird'
-    run = ['move-node-to-workspace 4']
-
-[[on-window-detected]]
-    if.app-id = 'com.apple.iCal'
-    run = ['move-node-to-workspace 4']
-
-## social
-[[on-window-detected]]
-    if.app-id = 'com.tinyspeck.slackmacgap'
-    run = ['move-node-to-workspace 3']
-
-[[on-window-detected]]
-    if.app-id = 'com.hnc.Discord'
-    run = ['move-node-to-workspace 3']
-
-[[on-window-detected]]
-    if.app-id = 'org.whispersystems.signal-desktop-beta'
-    run = ['move-node-to-workspace 3']
-
-[[on-window-detected]]
-    if.app-id = 'org.whispersystems.signal-desktop'
-    run = ['move-node-to-workspace 3']
-
-[[on-window-detected]]
-    if.app-id = 'im.riot.app'
-    run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
     if.app-id = 'com.microsoft.rdc.macos'
     if.window-title-regex-substring = '192'
     run = ['layout floating']
+
+# programm workspace rules
+## web
+[[on-window-detected]]
+    if.app-name-regex-substring = 'chrome'
+    run = ['move-node-to-workspace 1']
+
+## media
+[[on-window-detected]]
+    if.app-name-regex-substring = 'code'
+    run = ['move-node-to-workspace 2']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'spotify'
+    run = ['move-node-to-workspace 2']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'jellyfin'
+    run = ['move-node-to-workspace 2']
+
+## mail
+[[on-window-detected]]
+    if.app-name-regex-substring = 'mail'
+    run = ['move-node-to-workspace 4']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'calendar'
+    run = ['move-node-to-workspace 4']
+
+## social
+[[on-window-detected]]
+    if.app-name-regex-substring = 'slack'
+    run = ['move-node-to-workspace 3']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'discord'
+    run = ['move-node-to-workspace 3']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'signal'
+    run = ['move-node-to-workspace 3']
