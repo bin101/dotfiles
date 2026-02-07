@@ -171,6 +171,11 @@ on-mode-changed = []
     if.window-title-regex-substring = '192'
     run = ['layout floating']
 
+[[on-window-detected]]
+    if.app-name-regex-substring = 'unarchiver'
+    run = ['layout floating']
+    
+
 # programm workspace rules
 ## web
 [[on-window-detected]]
