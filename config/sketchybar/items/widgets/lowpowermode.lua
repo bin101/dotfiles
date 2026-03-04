@@ -31,11 +31,11 @@ local function setModeValue(v)
   if v == 1 then
     label = icons.slow
     color = colors.green
-    sbar.exec("sudo pmset -a lowpowermode 1")
+    sbar.exec("sudo pmset -a lowpowermode 1", function() end)
   else
     label = icons.fast
     color = colors.red
-    sbar.exec("sudo pmset -a lowpowermode 0")
+    sbar.exec("sudo pmset -a lowpowermode 0", function() end)
   end
   lowpowermode:set({
     label = { 

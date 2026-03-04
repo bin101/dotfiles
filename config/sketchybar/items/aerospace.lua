@@ -26,8 +26,10 @@ local function getAppIcon(appName)
     return icon
 end
 
-local function updateSpaceWindows(space, space_name)
+local function updateSpaceWindows(space, space_name, spaceId)
+    if not workspaces[spaceId] then return end
     aerospace:list_windows(space_name, function(windows_json)
+        if not workspaces[spaceId] then return end
         local windows = json.decode(windows_json)
         local hasApps = windows and #windows > 0
         local icon_line = ""
@@ -44,6 +46,7 @@ local function updateSpaceWindows(space, space_name)
         end
 
         sbar.animate("tanh", 10, function()
+            if not workspaces[spaceId] then return end
             space:set({ label = icon_line })
         end)
     end)
@@ -66,11 +69,11 @@ function reorderWorkspaces()
     end
 
     if item_order ~= "" then
-        sbar.exec("sketchybar --reorder aerospace.padding aerospace.eventlistener " .. item_order .. " front_app")
+        sbar.exec("sketchybar --reorder aerospace.padding aerospace.eventlistener " .. item_order .. " front_app", function() end)
     end
 end
 
-local function createWorkspace(space_name, isFocused)
+local function createWorkspace(space_name, isFocused, skip_reorder)
     local spaceId = "aerospace.space_" .. space_name
 
     if workspaces[spaceId] then
@@ -129,6 +132,7 @@ local function createWorkspace(space_name, isFocused)
 
     -- subscribe event listeners
     space:subscribe("aerospace_workspace_change", function(env)
+        if not workspaces[spaceId] then return end
         local isFocused = env.FOCUSED_WORKSPACE == space_name
         space:set({
             icon = { highlight = isFocused },
@@ -141,18 +145,21 @@ local function createWorkspace(space_name, isFocused)
     end)
 
     space:subscribe("mouse.clicked", function()
+        if not workspaces[spaceId] then return end
         aerospace:workspace(space_name)
     end)
 
     space:subscribe({"space_windows_change", "front_app_switched"}, function()
-        updateSpaceWindows(space, space_name)
+        updateSpaceWindows(space, space_name, spaceId)
     end)
 
     -- initial setup
-    updateSpaceWindows(space, space_name)
+    updateSpaceWindows(space, space_name, spaceId)
 
-    -- Reorder workspaces
-    reorderWorkspaces()
+    -- Reorder workspaces (skip during batch creation)
+    if not skip_reorder then
+        reorderWorkspaces()
+    end
 
     return spaceId
 end
@@ -176,27 +183,30 @@ local function removeWorkspace(spaceId)
 end
 
 local function updateWorkspaces()
-    local current_spaces = {}
-
     aerospace:list_workspaces_focused(function(focusedWorkspace)
         local focusedWorkspace = focusedWorkspace:match("[^\r\n]+") or ""
 
         aerospace:list_workspaces_all(function(allWorkspaces)
+            local current_spaces = {}
+
             for _, ws_info in ipairs(allWorkspaces) do
                 local space_name = ws_info.workspace
                 local isFocused = (space_name == focusedWorkspace)
-                local spaceId = createWorkspace(space_name, isFocused)
+                local spaceId = createWorkspace(space_name, isFocused, true)
                 current_spaces[spaceId] = true
             end
+
+            -- Remove workspaces that no longer exist
+            for spaceId, _ in pairs(workspaces) do
+                if not current_spaces[spaceId] then
+                    removeWorkspace(spaceId)
+                end
+            end
+
+            -- Reorder once after all changes
+            reorderWorkspaces()
         end)
     end)
-
-    -- Remove workspaces that no longer exist
-    for spaceId, _ in pairs(workspaces) do
-        if not current_spaces[spaceId] then
-            removeWorkspace(spaceId)
-        end
-    end
 end
 
 workspace_watcher:subscribe("aerospace_workspace_change", function()

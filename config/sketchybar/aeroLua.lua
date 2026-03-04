@@ -54,7 +54,7 @@ local Aerospace = {}; Aerospace.__index = Aerospace
 
 function Aerospace.new(path)
 	if not path then
-		local username = io.popen("id -un"):read("*l")
+		local username = os.getenv("USER") or "unknown"
 		path = DEFAULT.SOCK_FMT:format(username)
 	end
 

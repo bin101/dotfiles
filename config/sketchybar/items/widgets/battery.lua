@@ -29,6 +29,8 @@ local remaining_time = sbar.add("item", "widgets.battery.remaining_time", {
   },
 })
 
+-- Track popup state locally to avoid blocking battery:query() calls
+local popup_open = false
 
 battery:subscribe({"routine", "power_source_change", "system_woke"}, function()
   sbar.exec("pmset -g batt", function(batt_info)
@@ -78,14 +80,14 @@ battery:subscribe({"routine", "power_source_change", "system_woke"}, function()
 end)
 
 battery:subscribe("mouse.clicked", function(env)
-  local drawing = battery:query().popup.drawing
-  battery:set( { popup = { drawing = "toggle" } })
+  popup_open = not popup_open
+  battery:set({ popup = { drawing = popup_open } })
 
-  if drawing == "off" then
+  if popup_open then
     sbar.exec("pmset -g batt", function(batt_info)
       local found, _, remaining = batt_info:find(" (%d+:%d+) remaining")
       local label = found and remaining .. "h" or "No estimate"
-      remaining_time:set( { label = label })
+      remaining_time:set({ label = label })
     end)
   end
 end)

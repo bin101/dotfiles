@@ -13,7 +13,9 @@ enum unit {
   UNIT_KBPS,
   UNIT_MBPS
 };
+
 struct network {
+  char ifname[32];
   uint32_t row;
   struct ifmibdata data;
   struct timeval tv_nm1, tv_n, tv_delta;
@@ -22,6 +24,21 @@ struct network {
   int down;
   enum unit up_unit, down_unit;
 };
+
+// Detect the current default network interface via routing table
+static inline int get_default_interface(char* ifname, size_t len) {
+  FILE* fp = popen("route -n get default 2>/dev/null "
+                    "| awk '/interface:/ {print $2}'", "r");
+  if (!fp) return -1;
+  if (fgets(ifname, len, fp) == NULL) {
+    pclose(fp);
+    return -1;
+  }
+  pclose(fp);
+  char* nl = strchr(ifname, '\n');
+  if (nl) *nl = '\0';
+  return (strlen(ifname) > 0) ? 0 : -1;
+}
 
 static inline void ifdata(uint32_t net_row, struct ifmibdata* data) {
 	static size_t size = sizeof(struct ifmibdata);
@@ -32,6 +49,7 @@ static inline void ifdata(uint32_t net_row, struct ifmibdata* data) {
 
 static inline void network_init(struct network* net, char* ifname) {
   memset(net, 0, sizeof(struct network));
+  strncpy(net->ifname, ifname, sizeof(net->ifname) - 1);
 
   static int count_option[] = { CTL_NET, PF_LINK, NETLINK_GENERIC, IFMIB_SYSTEM, IFMIB_IFCOUNT };
   uint32_t interface_count = 0;

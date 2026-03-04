@@ -1,9 +1,5 @@
 local colors = require("colors")
 local settings = require("settings")
-local icons = require("icons")
-
-local icon_color = colors.grey
-local icon_string = "?"
 
 local front_app = sbar.add("item", "front_app", {
   icon = { drawing = false },
