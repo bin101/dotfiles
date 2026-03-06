@@ -3,15 +3,16 @@
 -- @copyright 2025
 -- @license MIT
 
-local socket               = require("posix.sys.socket")
-local unistd               = require("posix.unistd")
-local cjson                = require("cjson")
-local simdjson             = require("simdjson")
+local socket_lib           = require("socket")
+local unix                 = require("socket.unix")
+local json                 = require("dkjson")
 
 local DEFAULT              = {
-	SOCK_FMT = "/tmp/bobko.aerospace-%s.sock",
-	MAX_BUF  = 2048,
-	EXT_BUF  = 4096,
+	SOCK_FMT    = "/tmp/bobko.aerospace-%s.sock",
+	TIMEOUT     = 5,
+	DRAIN_TO    = 0.05,
+	RETRIES     = 50,
+	RETRY_DELAY = 0.1,
 }
 local ERR                  = {
 	SOCKET   = "socket error",
@@ -19,35 +20,31 @@ local ERR                  = {
 	JSON     = "failed to decode JSON",
 }
 
-local AF_UNIX, SOCK_STREAM = socket.AF_UNIX, socket.SOCK_STREAM
-local write, read, close   = unistd.write, unistd.read, unistd.close
-local encode               = cjson.encode
+local encode               = json.encode
 
-local use_simd             = true
 local function decode(str)
-	if use_simd then
-		local ok, val = pcall(simdjson.parse, str)
-		if ok then return val end
-		use_simd = false
-	end
-	local ok, val = pcall(cjson.decode, str)
-	if not ok then error(ERR.JSON .. ": " .. tostring(val)) end
+	local val, _, err = json.decode(str)
+	if err then error(ERR.JSON .. ": " .. err) end
 	return val
 end
 
 local function connect(path)
-	local fd, err = socket.socket(AF_UNIX, SOCK_STREAM, 0)
-	if not fd then error(ERR.SOCKET .. ": " .. tostring(err)) end
-	if socket.connect(fd, { family = AF_UNIX, path = path }) ~= 0 then
-		close(fd); error("cannot connect to " .. path)
+	local conn = unix()
+	local ok, err = conn:connect(path)
+	if not ok then
+		conn:close()
+		error("cannot connect to " .. path .. ": " .. tostring(err))
 	end
-	return fd
+	conn:settimeout(DEFAULT.TIMEOUT)
+	return conn
 end
 
 local function stdout(raw)
-	local ok, doc = pcall(simdjson.open, raw)
-	if not ok then error(ERR.JSON .. ": " .. tostring(doc)) end
-	return doc:atPointer("/stdout")
+	local doc = decode(raw)
+	if type(doc) ~= "table" or doc.stdout == nil then
+		error(ERR.JSON .. ": missing stdout field")
+	end
+	return doc.stdout
 end
 
 local Aerospace = {}; Aerospace.__index = Aerospace
@@ -58,12 +55,21 @@ function Aerospace.new(path)
 		path = DEFAULT.SOCK_FMT:format(username)
 	end
 
-	return setmetatable({ sockPath = path, fd = connect(path) }, Aerospace)
+	local fd, last_err
+	for _ = 1, DEFAULT.RETRIES do
+		local ok, res = pcall(connect, path)
+		if ok then fd = res; break end
+		last_err = res
+		socket_lib.sleep(DEFAULT.RETRY_DELAY)
+	end
+	if not fd then error("could not connect after retries: " .. tostring(last_err)) end
+
+	return setmetatable({ sockPath = path, fd = fd }, Aerospace)
 end
 
 function Aerospace:close()
 	if self.fd then
-		close(self.fd); self.fd = nil
+		self.fd:close(); self.fd = nil
 	end
 end
 
@@ -76,59 +82,75 @@ end
 function Aerospace:is_initialized() return self.fd ~= nil end
 
 local PAYLOAD_TMPL = '{"command":"","args":%s,"stdin":""}\n'
-function Aerospace:_query(args, want_json, big)
+function Aerospace:_query(args, want_json)
 	if not self:is_initialized() then error(ERR.NOT_INIT) end
 	local payload = PAYLOAD_TMPL:format(encode(args))
-	write(self.fd, payload)
+	local _, err = self.fd:send(payload)
+	if err then error(ERR.SOCKET .. ": " .. err) end
 
-	-- Read all available data from socket in chunks
-    local chunks = {}
-    local chunk_size = big and DEFAULT.EXT_BUF or DEFAULT.MAX_BUF
-    repeat
-        local chunk = read(self.fd, chunk_size)
-        if chunk and #chunk > 0 then
-            table.insert(chunks, chunk)
-        else
-            break
-        end
-    until #chunk < chunk_size  -- Stop when we get a partial chunk (last chunk)
+	self.fd:settimeout(0)
+	local buf, wait = "", DEFAULT.TIMEOUT
 
-    local raw = table.concat(chunks)
-	local out = stdout(raw)
+	while true do
+		local r = socket_lib.select({self.fd}, nil, wait)
+		if not r or #r == 0 then break end
+
+		local chunk, _, partial = self.fd:receive(8192)
+		local data = chunk or partial
+		if not data or #data == 0 then break end
+
+		buf = buf .. data
+
+		-- Try early exit: if buf starts with '{' and ends with '}' it's likely complete
+		local first = buf:byte(1)
+		if first == 0x7B then                          -- '{'
+			local last = buf:byte(#buf)
+			if last == 0x7D or last == 0x0A then       -- '}' or '\n'
+				break
+			end
+		end
+
+		wait = DEFAULT.DRAIN_TO
+	end
+
+	self.fd:settimeout(DEFAULT.TIMEOUT)
+	if #buf == 0 then error(ERR.SOCKET .. ": timeout") end
+
+	local out = stdout(buf)
 	return want_json and decode(out) or out
 end
 
-local function passthrough(self, argtbl, json, big, cb)
-	local res = self:_query(argtbl, json, big)
+local function passthrough(self, argtbl, as_json, cb)
+	local res = self:_query(argtbl, as_json)
 	return cb and cb(res) or res
 end
 
 function Aerospace:list_modes(current_only, cb)
 	local args = current_only and { "list-modes", "--current" } or { "list-modes" }
-	return passthrough(self, args, false, nil, cb)
+	return passthrough(self, args, false, cb)
 end
 
 function Aerospace:list_apps(cb)
-	return passthrough(self, { "list-apps", "--json" }, true, nil, cb)
+	return passthrough(self, { "list-apps", "--json" }, true, cb)
 end
 
 function Aerospace:list_workspaces_all(cb)
 	return passthrough(self, {
 		"list-workspaces", "--all",
 		"--format", "%{workspace-is-focused}%{workspace-is-visible}%{workspace}%{monitor-appkit-nsscreen-screens-id}",
-		"--json" }, true, true, cb)
+		"--json" }, true, cb)
 end
 
 function Aerospace:list_workspaces_focused(cb)
-	return passthrough(self, { "list-workspaces", "--focused" }, false, nil, cb)
+	return passthrough(self, { "list-workspaces", "--focused" }, false, cb)
 end
 
 function Aerospace:list_windows(space, cb)
-	return passthrough(self, { "list-windows", "--workspace", space, "--json" }, false, nil, cb)
+	return passthrough(self, { "list-windows", "--workspace", space, "--json" }, false, cb)
 end
 
 function Aerospace:list_window_focused(cb)
-	return passthrough(self, { "list-windows", "--focused", "--json" }, false, nil, cb)
+	return passthrough(self, { "list-windows", "--focused", "--json" }, false, cb)
 end
 
 function Aerospace:workspace(ws)
@@ -138,7 +160,7 @@ end
 function Aerospace:list_windows_all(cb)
 	return passthrough(self, {
 		"list-windows", "--all", "--json",
-		"--format", "%{window-id}%{app-name}%{window-title}%{workspace}" }, true, true, cb)
+		"--format", "%{window-id}%{app-name}%{window-title}%{workspace}" }, true, cb)
 end
 
 return Aerospace

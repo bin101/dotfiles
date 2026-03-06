@@ -1,9 +1,7 @@
 local colors     = require("colors")
 local settings   = require("settings")
 local app_icons  = require("helpers.app_icons")
-local cjson      = require("cjson")
-
-local json       = cjson.new()
+local json       = require("dkjson")
 local aerospace  = sbar.aerospace
 local workspaces = {}
 local icon_cache = {}
