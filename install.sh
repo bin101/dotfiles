@@ -21,7 +21,7 @@ luarocks install luasocket luasec dkjson
 echo "Changing macOS defaults..."
 defaults write com.apple.NetworkBrowser BrowseAllInterfaces 1
 defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
-defaults write com.apple.spaces spans-displays -bool false # create spaces for all displays
+defaults write com.apple.spaces spans-displays -bool true # just one space all displays
 defaults write com.apple.dock autohide -bool true
 defaults write com.apple.dock autohide-delay -float 0
 defaults write com.apple.dock autohide-time-modifier -float 0.4
@@ -48,6 +48,7 @@ defaults write com.apple.finder CreateDesktop -bool false
 defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool YES
 
 killall Finder
+killall SystemUIServer
 
 # Installing Fonts
 curl -L https://github.com/kvndrsslr/sketchybar-app-font/releases/download/latest/sketchybar-app-font.ttf -o $HOME/Library/Fonts/sketchybar-app-font.ttf
