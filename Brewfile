@@ -112,7 +112,6 @@ mas "EOBD-Facile", id: 976630793
 mas "GarageBand", id: 682658836
 mas "iMovie", id: 408981434
 mas "Keynote", id: 409183694
-mas "Numbers", id: 361304891
 mas "Numbers", id: 409203825
 mas "Pages", id: 409201541
 mas "Pure Paste", id: 1611378436
