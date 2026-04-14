@@ -32,6 +32,8 @@ fi
 
 brew analytics off
 
+sudo softwareupdate --install-rosetta
+
 # Prompt to log in to App Store (required for mas)
 echo "Please make sure you are logged in to the App Store (required for mas installs)."
 echo "Press Enter to continue..."
