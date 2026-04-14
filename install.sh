@@ -78,6 +78,8 @@ defaults write com.apple.finder ShowPathbar -bool true
 defaults write com.apple.finder _FXSortFoldersFirst -bool true
 defaults write com.apple.finder CreateDesktop -bool false
 defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool YES
+defaults -currentHost write -globalDomain NSStatusItemSelectionPadding -int 5
+defaults -currentHost write -globalDomain NSStatusItemSpacing -int 0
 
 killall Finder
 killall SystemUIServer
