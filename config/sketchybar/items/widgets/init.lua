@@ -1,4 +1,4 @@
-require("items.widgets.lowpowermode")
+-- require("items.widgets.lowpowermode")
 require("items.widgets.secureinput")
 require("items.widgets.battery")
 require("items.widgets.volume")
