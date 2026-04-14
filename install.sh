@@ -45,7 +45,9 @@ brew bundle install --file="$DOTFILES_DIR/Brewfile"
 
 # Install lua packages
 echo "Installing Lua packages..."
-luarocks install luasocket luasec dkjson
+luarocks install luasocket
+luarocks install luasec
+luarocks install dkjson
 
 # macOS Settings
 echo "Changing macOS defaults..."
