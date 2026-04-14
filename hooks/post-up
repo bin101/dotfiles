@@ -11,3 +11,5 @@ vim +PlugUpdate +PlugClean! +qall
 
 reset -Q
 
+chmod 600 ~/.gnupg/*
+chmod 700 ~/.gnupg
