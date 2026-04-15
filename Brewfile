@@ -10,7 +10,6 @@ brew "sqlite"
 brew "zstd"
 brew "tree"
 brew "ansible"
-brew "highway"
 brew "aria2"
 brew "bash"
 brew "btop"
@@ -19,9 +18,11 @@ brew "cask"
 brew "eza"
 brew "fzf"
 brew "gdu"
+brew "git"
 brew "git-delta"
 brew "gitversion"
 brew "gnupg"
+brew "highway"
 brew "hopenpgp-tools"
 brew "htop"
 brew "ifstat"
@@ -43,6 +44,7 @@ brew "nowplaying-cli"
 brew "pinentry-mac"
 brew "pipx"
 brew "pkgconf"
+brew "python-argcomplete"
 brew "python@3.11"
 brew "python@3.13"
 brew "ranger"
@@ -78,6 +80,7 @@ cask "font-sf-pro"
 cask "font-sketchybar-app-font"
 cask "garmin-express"
 cask "gimp"
+cask "google-chrome"
 cask "hiddenbar"
 cask "inkscape"
 cask "kitty"
@@ -97,6 +100,7 @@ cask "signal"
 cask "slack"
 cask "soundanchor"
 cask "spotify"
+cask "stolendata-mpv"
 cask "the-unarchiver"
 cask "visual-studio-code"
 cask "vlc"
@@ -108,12 +112,6 @@ mas "Bitwarden", id: 1352778147
 mas "Color Picker", id: 1545870783
 mas "Command X", id: 6448461551
 mas "Endurance", id: 1590043284
-mas "EOBD-Facile", id: 976630793
-mas "GarageBand", id: 682658836
-mas "iMovie", id: 408981434
-mas "Keynote", id: 409183694
-mas "Numbers", id: 409203825
-mas "Pages", id: 409201541
 mas "Pure Paste", id: 1611378436
 mas "Saber", id: 1671523739
 mas "WireGuard", id: 1451685025
