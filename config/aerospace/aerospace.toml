@@ -188,6 +188,10 @@ on-mode-changed = []
     run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
+    if.app-name-regex-substring = 'android studio'
+    run = ['move-node-to-workspace 2']
+
+[[on-window-detected]]
     if.app-name-regex-substring = 'spotify'
     run = ['move-node-to-workspace 2']
 
