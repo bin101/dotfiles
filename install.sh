@@ -81,6 +81,27 @@ defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool YES
 defaults -currentHost write -globalDomain NSStatusItemSelectionPadding -int 5
 defaults -currentHost write -globalDomain NSStatusItemSpacing -int 0
 
+# Install custom keyboard layout system-wide
+echo "Installing custom keyboard layout..."
+KEYLAYOUT_SRC="$DOTFILES_DIR/custom/us_international_wo_deadkeys.keylayout"
+KEYLAYOUT_DEST="/Library/Keyboard Layouts/us_international_wo_deadkeys.keylayout"
+if [[ ! -f "$KEYLAYOUT_DEST" ]] || ! cmp -s "$KEYLAYOUT_SRC" "$KEYLAYOUT_DEST"; then
+  sudo install -m 644 -o root -g wheel "$KEYLAYOUT_SRC" "$KEYLAYOUT_DEST"
+  echo "Keyboard layout installed."
+else
+  echo "Keyboard layout already up to date."
+fi
+
+# Set custom layout as the only enabled input source (removes system default USInternational-PC)
+defaults write com.apple.HIToolbox AppleEnabledInputSources -array \
+  '<dict><key>InputSourceKind</key><string>Keyboard Layout</string><key>KeyboardLayout ID</key><integer>16383</integer><key>KeyboardLayout Name</key><string>U.S. International w/o dead keys</string></dict>' \
+  '<dict><key>Bundle ID</key><string>com.apple.CharacterPaletteIM</string><key>InputSourceKind</key><string>Non Keyboard Input Method</string></dict>' \
+  '<dict><key>Bundle ID</key><string>com.apple.PressAndHold</string><key>InputSourceKind</key><string>Non Keyboard Input Method</string></dict>'
+
+defaults write com.apple.HIToolbox AppleSelectedInputSources -array \
+  '<dict><key>InputSourceKind</key><string>Keyboard Layout</string><key>KeyboardLayout ID</key><integer>16383</integer><key>KeyboardLayout Name</key><string>U.S. International w/o dead keys</string></dict>' \
+  '<dict><key>Bundle ID</key><string>com.apple.PressAndHold</string><key>InputSourceKind</key><string>Non Keyboard Input Method</string></dict>'
+
 killall Finder
 killall SystemUIServer
 
@@ -94,9 +115,3 @@ rcup -v
 # Start Services
 echo "Starting Services (grant permissions)..."
 brew services start felixkratz/formulae/sketchybar
-
-echo ""
-echo "=== Post-install manual steps ==="
-echo "1. Symlink JDK: sudo ln -sfn /opt/homebrew/opt/openjdk/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk.jdk"
-echo "2. Make volume icon in status bar always available in control center"
-echo "3. Installation complete — please restart your Mac."
