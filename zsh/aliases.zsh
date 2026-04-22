@@ -25,9 +25,9 @@ alias ll='ls -l'
 alias la='ll -a'
 alias lm='la | less'
 
-alias server-update="(cd ~/Repos/ansible && ansible-playbook playbooks/updateall.yml)"
-alias server-setup="(cd ~/Repos/ansible && ansible-playbook playbooks/setup.yml)"
-alias server-migrate="(cd ~/Repos/ansible && ansible-playbook playbooks/migrateHistory.yml)"
+alias server-update="(cd ~/projects/private/ansible && ansible-playbook playbooks/updateall.yml)"
+alias server-setup="(cd ~/projects/private/ansible && ansible-playbook playbooks/setup.yml)"
+alias server-migrate="(cd ~/projects/private/ansible && ansible-playbook playbooks/migrateHistory.yml)"
 
 alias apiDump="./gradlew updateLegacyAbi"
 alias testDebug="./gradlew testDebugUnitTest"
