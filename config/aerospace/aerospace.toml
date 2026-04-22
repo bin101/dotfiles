@@ -196,7 +196,7 @@ on-mode-changed = []
     run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
-    if.app-name-regex-substring = 'jellyfin'
+    if.app-name-regex-substring = 'jellyfin desktop'
     run = ['move-node-to-workspace 2']
 
 ## mail
@@ -219,4 +219,8 @@ on-mode-changed = []
 
 [[on-window-detected]]
     if.app-name-regex-substring = 'signal'
+    run = ['move-node-to-workspace 3']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'teams'
     run = ['move-node-to-workspace 3']
