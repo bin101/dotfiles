@@ -37,13 +37,13 @@ end
 -- Returns the correct glyph color for an app icon given the four-state matrix.
 local function iconColor(isWsFocused, isAppFocused)
     if isWsFocused and isAppFocused then
-        return colors.red
-    elseif isWsFocused then
         return colors.white
+    elseif isWsFocused then
+        return colors.with_alpha(colors.grey, 0.75)
     elseif isAppFocused then
-        return colors.with_alpha(colors.red, 0.6)
+        return colors.with_alpha(colors.white, 0.55)
     else
-        return colors.with_alpha(colors.grey, 0.55)
+        return colors.with_alpha(colors.grey, 0.35)
     end
 end
 
@@ -231,12 +231,7 @@ local function createWorkspace(space_name, isFocused, skip_reorder)
             font          = "sketchybar-app-font:Regular:16.0",
             y_offset      = -1,
         },
-        background = {
-            color        = colors.bg1,
-            border_width = 1,
-            height       = 26,
-            border_color = isFocused and colors.black or colors.bg2,
-        },
+        background = { drawing = false },
         padding_right = 1,
         padding_left  = 1,
     })
@@ -265,8 +260,7 @@ local function createWorkspace(space_name, isFocused, skip_reorder)
         if not workspaces[spaceId] then return end
         local nowFocused = env.FOCUSED_WORKSPACE == space_name
         space:set({
-            icon       = { highlight = nowFocused },
-            background = { border_color = nowFocused and colors.black or colors.bg2 }
+            icon = { highlight = nowFocused },
         })
         space_bracket_update(spaceId, nowFocused)
         -- Re-colour all app items for this workspace (WS brightness changed)
