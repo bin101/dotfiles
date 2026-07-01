@@ -8,16 +8,17 @@ local unix                 = require("socket.unix")
 local json                 = require("dkjson")
 
 local DEFAULT              = {
-	SOCK_FMT    = "/tmp/bobko.aerospace-%s.sock",
-	TIMEOUT     = 5,
-	DRAIN_TO    = 0.05,
-	RETRIES     = 50,
-	RETRY_DELAY = 0.1,
+	SOCK_FMT         = "/tmp/bobko.aerospace-%s.sock",
+	TIMEOUT          = 5,
+	RETRIES          = 50,
+	RETRY_DELAY      = 0.1,
+	PROTOCOL_VERSION = 1,
 }
 local ERR                  = {
 	SOCKET   = "socket error",
 	NOT_INIT = "socket not connected",
 	JSON     = "failed to decode JSON",
+	PROTO    = "protocol version mismatch",
 }
 
 local encode               = json.encode
@@ -36,6 +37,23 @@ local function connect(path)
 		error("cannot connect to " .. path .. ": " .. tostring(err))
 	end
 	conn:settimeout(DEFAULT.TIMEOUT)
+
+	-- v0.21 handshake: send our protocol version, read back server version
+	local _, serr = conn:send(string.pack("<I4", DEFAULT.PROTOCOL_VERSION))
+	if serr then conn:close(); error(ERR.SOCKET .. ": handshake send: " .. serr) end
+
+	local raw, rerr = conn:receive(4)
+	if not raw or #raw < 4 then
+		conn:close()
+		error(ERR.SOCKET .. ": handshake recv: " .. tostring(rerr))
+	end
+	local srv_ver = string.unpack("<I4", raw)
+	if srv_ver ~= DEFAULT.PROTOCOL_VERSION then
+		conn:close()
+		error(ERR.PROTO .. " (client=" .. DEFAULT.PROTOCOL_VERSION ..
+		      " server=" .. srv_ver .. "). Restart AeroSpace.")
+	end
+
 	return conn
 end
 
@@ -44,7 +62,24 @@ local function stdout(raw)
 	if type(doc) ~= "table" or doc.stdout == nil then
 		error(ERR.JSON .. ": missing stdout field")
 	end
+	if doc.exitCode ~= 0 and doc.stderr and #doc.stderr > 0 then
+		error("aerospace error (exit " .. tostring(doc.exitCode) .. "): " .. doc.stderr)
+	end
 	return doc.stdout
+end
+
+-- Read exactly `n` bytes from `conn`, assembling partial reads.
+local function recvn(conn, n)
+	local buf = ""
+	while #buf < n do
+		local chunk, err, partial = conn:receive(n - #buf)
+		local data = chunk or partial
+		if not data or #data == 0 then
+			error(ERR.SOCKET .. ": connection closed while reading (" .. tostring(err) .. ")")
+		end
+		buf = buf .. data
+	end
+	return buf
 end
 
 local Aerospace = {}; Aerospace.__index = Aerospace
@@ -81,40 +116,23 @@ end
 
 function Aerospace:is_initialized() return self.fd ~= nil end
 
-local PAYLOAD_TMPL = '{"command":"","args":%s,"stdin":""}\n'
+-- v0.21 framing: {"args":...,"stdin":"","windowId":null,"workspace":null}
+local PAYLOAD_TMPL = '{"args":%s,"stdin":"","windowId":null,"workspace":null}'
 function Aerospace:_query(args, want_json)
 	if not self:is_initialized() then error(ERR.NOT_INIT) end
+
+	-- Send: 4-byte LE length prefix + JSON body
 	local payload = PAYLOAD_TMPL:format(encode(args))
-	local _, err = self.fd:send(payload)
-	if err then error(ERR.SOCKET .. ": " .. err) end
+	local frame   = string.pack("<I4", #payload) .. payload
+	local _, serr = self.fd:send(frame)
+	if serr then error(ERR.SOCKET .. ": " .. serr) end
 
-	self.fd:settimeout(0)
-	local buf, wait = "", DEFAULT.TIMEOUT
-
-	while true do
-		local r = socket_lib.select({self.fd}, nil, wait)
-		if not r or #r == 0 then break end
-
-		local chunk, _, partial = self.fd:receive(8192)
-		local data = chunk or partial
-		if not data or #data == 0 then break end
-
-		buf = buf .. data
-
-		-- Try early exit: if buf starts with '{' and ends with '}' it's likely complete
-		local first = buf:byte(1)
-		if first == 0x7B then                          -- '{'
-			local last = buf:byte(#buf)
-			if last == 0x7D or last == 0x0A then       -- '}' or '\n'
-				break
-			end
-		end
-
-		wait = DEFAULT.DRAIN_TO
-	end
-
+	-- Receive: 4-byte LE length prefix, then exactly that many bytes
 	self.fd:settimeout(DEFAULT.TIMEOUT)
-	if #buf == 0 then error(ERR.SOCKET .. ": timeout") end
+	local lenraw = recvn(self.fd, 4)
+	local bodylen = string.unpack("<I4", lenraw)
+	if bodylen == 0 then error(ERR.SOCKET .. ": server sent empty response") end
+	local buf = recvn(self.fd, bodylen)
 
 	local out = stdout(buf)
 	return want_json and decode(out) or out
