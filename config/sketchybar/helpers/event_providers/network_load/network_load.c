@@ -2,7 +2,7 @@
 #include "network.h"
 #include "../sketchybar.h"
 
-int main (int argc, char** argv) {
+int main(int argc, char **argv) {
   float update_freq;
   if (argc < 3 || (sscanf(argv[2], "%f", &update_freq) != 1)) {
     printf("Usage: %s \"<event-name>\" \"<event_freq>\"\n", argv[0]);
@@ -10,55 +10,38 @@ int main (int argc, char** argv) {
   }
 
   alarm(0);
-  // Setup the event in sketchybar
+
+  /* Register the event with sketchybar */
   char event_message[512];
-  snprintf(event_message, 512, "--add event '%s'", argv[1]);
+  snprintf(event_message, sizeof(event_message),
+           "--add event '%s'", argv[1]);
   sketchybar(event_message);
 
-  struct network network;
-  memset(&network, 0, sizeof(network));
+  struct network net;
+  memset(&net, 0, sizeof(net));
 
-  char current_ifname[32] = "";
   char trigger_message[512];
 
   for (;;) {
-    // Auto-detect the current default network interface
-    char detected_if[32] = "";
-    if (get_default_interface(detected_if, sizeof(detected_if)) == 0) {
-      // Re-initialize when interface changes
-      if (strcmp(detected_if, current_ifname) != 0) {
-        strncpy(current_ifname, detected_if, sizeof(current_ifname) - 1);
-        network_init(&network, current_ifname);
-      }
+    network_sample(&net);
 
-      // Acquire new info
-      network_update(&network);
-
-      // Prepare the event message (includes interface name)
-      snprintf(trigger_message,
-               512,
+    if (net.ifname[0] != '\0') {
+      snprintf(trigger_message, sizeof(trigger_message),
                "--trigger '%s' upload='%03d%s' download='%03d%s' interface='%s'",
                argv[1],
-               network.up,
-               unit_str[network.up_unit],
-               network.down,
-               unit_str[network.down_unit],
-               current_ifname);
-
-      // Trigger the event
-      sketchybar(trigger_message);
+               net.up,   unit_str[net.up_unit],
+               net.down, unit_str[net.down_unit],
+               net.ifname);
     } else {
-      // No default route / no network
-      snprintf(trigger_message,
-               512,
+      /* No usable interface found */
+      snprintf(trigger_message, sizeof(trigger_message),
                "--trigger '%s' upload='000 Bps' download='000 Bps' interface='none'",
                argv[1]);
-      sketchybar(trigger_message);
-      current_ifname[0] = '\0';
     }
 
-    // Wait
-    usleep(update_freq * 1000000);
+    sketchybar(trigger_message);
+    usleep((useconds_t)(update_freq * 1000000.f));
   }
+
   return 0;
 }

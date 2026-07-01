@@ -2,8 +2,9 @@ local icons = require("icons")
 local colors = require("colors")
 local settings = require("settings")
 
--- Execute the event provider binary which auto-detects the active network
--- interface (Wi-Fi or Ethernet) and fires "network_update" every 2.0 seconds.
+-- Execute the event provider binary. It samples all network interfaces each
+-- cycle, picks the busiest one (hybrid: falls back to the default-route
+-- interface at idle), and fires "network_update" every 2.0 seconds.
 sbar.exec("killall network_load >/dev/null; $CONFIG_DIR/helpers/event_providers/network_load/bin/network_load network_update 2.0", function() end)
 
 local popup_width = 250
