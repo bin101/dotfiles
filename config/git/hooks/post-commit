@@ -1,0 +1,3 @@
+#!/bin/sh
+# tokensave: auto-sync
+/opt/homebrew/bin/tokensave sync >/dev/null 2>&1 &
