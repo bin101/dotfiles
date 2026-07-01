@@ -272,15 +272,10 @@ local function createWorkspace(space_name, isFocused, skip_reorder)
         aerospace:workspace(space_name)
     end)
 
-    space:subscribe({"space_windows_change", "front_app_switched"}, function()
+    -- space_windows_change: only this workspace needs a reconcile.
+    -- front_app_switched and aerospace_focus_change are handled globally (seed + recolor all).
+    space:subscribe("space_windows_change", function()
         updateSpaceWindows(spaceId)
-    end)
-
-    space:subscribe("aerospace_focus_change", function()
-        -- Refresh focused window state, then re-colour
-        seedFocusedWindow(function()
-            recolorAppItems(spaceId)
-        end)
     end)
 
     -- initial window load
@@ -339,61 +334,59 @@ end
 
 -- ─── bulk workspace update ────────────────────────────────────────────────────
 
-local function updateWorkspaces()
+-- Sync the workspace list against AeroSpace. focused_workspace must already be
+-- up to date. Only calls reorderWorkspaces() when a workspace was added.
+-- (removeWorkspace calls it internally for removals.)
+local function syncWorkspaceList()
+    aerospace:list_workspaces_all(function(allWorkspaces)
+        local current_spaces = {}
+        local added = false
+
+        for _, ws_info in ipairs(allWorkspaces) do
+            local space_name = ws_info.workspace
+            local spaceId    = "aerospace.space_" .. space_name
+            if not workspaces[spaceId] then
+                createWorkspace(space_name, (space_name == focused_workspace), true)
+                added = true
+            end
+            current_spaces[spaceId] = true
+        end
+
+        local removed = false
+        for spaceId, _ in pairs(workspaces) do
+            if not current_spaces[spaceId] then
+                removeWorkspace(spaceId)
+                removed = true
+            end
+        end
+
+        if added and not removed then
+            reorderWorkspaces()
+        end
+    end)
+end
+
+-- Used only at startup: seeds focused_workspace first, then syncs the list.
+local function initWorkspaces()
     aerospace:list_workspaces_focused(function(raw_ws)
         focused_workspace = (raw_ws or ""):match("[^\r\n]+") or ""
-
-        aerospace:list_workspaces_all(function(allWorkspaces)
-            local current_spaces = {}
-
-            for _, ws_info in ipairs(allWorkspaces) do
-                local space_name = ws_info.workspace
-                local isFocused  = (space_name == focused_workspace)
-                local spaceId    = createWorkspace(space_name, isFocused, true)
-                current_spaces[spaceId] = true
-            end
-
-            for spaceId, _ in pairs(workspaces) do
-                if not current_spaces[spaceId] then
-                    removeWorkspace(spaceId)
-                end
-            end
-
-            reorderWorkspaces()
-        end)
+        syncWorkspaceList()
     end)
 end
 
 -- ─── global event subscriptions ──────────────────────────────────────────────
 
+-- Workspace focus changed: update global state and sync the list.
+-- Visual updates (highlight, bracket, icon colours) are handled by the
+-- per-item aerospace_workspace_change subscriptions — no duplicate work here.
 workspace_watcher:subscribe("aerospace_workspace_change", function(env)
-    local prev_ws     = focused_workspace
     focused_workspace = env.FOCUSED_WORKSPACE or ""
-    updateWorkspaces()
-    -- Re-colour old and new focused workspace so brightness flips immediately
-    local prevId = "aerospace.space_" .. prev_ws
-    local newId  = "aerospace.space_" .. focused_workspace
-    if workspaces[prevId] then recolorAppItems(prevId) end
-    if workspaces[newId]  then recolorAppItems(newId) end
+    syncWorkspaceList()
 end)
 
-workspace_watcher:subscribe("space_windows_change", function()
-    for spaceId, _ in pairs(workspaces) do
-        updateSpaceWindows(spaceId)
-    end
-end)
-
-workspace_watcher:subscribe("aerospace_focus_change", function()
-    seedFocusedWindow(function()
-        -- Re-colour every workspace (focused window may have been in any of them)
-        for spaceId, _ in pairs(workspaces) do
-            recolorAppItems(spaceId)
-        end
-    end)
-end)
-
-workspace_watcher:subscribe("front_app_switched", function()
-    -- front_app_switched fires for same-workspace app changes; re-seed and re-colour
+-- Window focus changed: re-seed and re-colour.
+-- space_windows_change is handled per-item (each workspace reconciles itself).
+workspace_watcher:subscribe({"aerospace_focus_change", "front_app_switched"}, function()
     seedFocusedWindow(function()
         for spaceId, _ in pairs(workspaces) do
             recolorAppItems(spaceId)
@@ -441,5 +434,5 @@ end)
 
 -- Seed focus state before building workspaces so initial colours are correct
 seedFocusedWindow(function()
-    updateWorkspaces()
+    initWorkspaces()
 end)
