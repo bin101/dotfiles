@@ -19,6 +19,7 @@ require("items")
 sbar.add("event", "aerospace_workspace_change")
 sbar.add("event", "aerospace_mode_change")
 sbar.add("event", "space_windows_change")
+sbar.add("event", "space_layout_change")
 sbar.end_config()
 
 -- Run the event loop of the sketchybar module (without this there will be no

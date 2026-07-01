@@ -11,8 +11,19 @@ local icon_cache = {}
 local focused_workspace           = ""
 local focused_window_by_workspace = {}
 
+-- Spatial ordering state:
+--   window_order_by_workspace       space_name -> ordered list of window-ids (last measured)
+--   visible_by_workspace            space_name -> bool (currently shown on a monitor)
+--   update_serial                   space_name -> monotonic counter; stale async chains abort on mismatch
+local window_order_by_workspace = {}
+local visible_by_workspace      = {}
+local update_serial             = {}
+
 -- Launch the AeroSpace socket event provider (fires workspace/mode/window events)
 sbar.exec("killall aerospace_events >/dev/null 2>&1; $CONFIG_DIR/helpers/event_providers/aerospace_events/bin/aerospace_events", function() end)
+
+-- Launch the window-position watcher (polls CGWindowList, fires space_layout_change)
+sbar.exec("killall layout_change_watcher >/dev/null 2>&1; $CONFIG_DIR/helpers/event_providers/layout_change_watcher/bin/layout_change_watcher", function() end)
 
 -- Initial padding item
 sbar.add("item", "aerospace.padding", { position = "left", width = settings.group_paddings })
@@ -170,15 +181,136 @@ local function reconcileAppItems(spaceId, windows)
     end
 end
 
+-- ─── spatial window ordering ──────────────────────────────────────────────────
+
+-- Windows must differ by more than this many pixels in X to be considered
+-- spatially separate (handles sub-pixel compositor rounding only).
+-- Accordion peek offsets are typically 20-50px, so those members ARE sorted
+-- by X, not collapsed into a column.
+local X_TOLERANCE = 2
+
+-- Call the window_positions helper and parse its output into a lookup table.
+-- cb receives pos[window_id] = { x = N, y = N }.
+-- Off-screen/parked windows (macOS sentinel at -9999, -9999) are omitted so
+-- they fall into the "unknown → append at end" path instead of sorting to the left.
+local function queryWindowPositions(cb)
+    sbar.exec("$CONFIG_DIR/helpers/window_positions/bin/window_positions", function(output)
+        local pos = {}
+        if output then
+            for line in output:gmatch("[^\n]+") do
+                local wid_s, x_s, y_s = line:match("^(%d+)%s+(-?%d+)%s+(-?%d+)")
+                if wid_s then
+                    local x = tonumber(x_s)
+                    local y = tonumber(y_s)
+                    -- Discard off-screen park sentinel (-9999, -9999) and any other
+                    -- unrealistic coordinates (< -9000). Legitimate multi-monitor
+                    -- negative X values don't reach this threshold.
+                    if x > -9000 and y > -9000 then
+                        pos[tonumber(wid_s)] = { x = x, y = y }
+                    end
+                end
+            end
+        end
+        cb(pos)
+    end)
+end
+
+-- Sort `windows` in-place by reading order: left→right (X), then top→bottom (Y).
+-- Windows whose id is absent from `pos` preserve their relative list order at the end.
+local function sortWindowsSpatially(windows, pos)
+    local orig_idx = {}
+    for i, w in ipairs(windows) do orig_idx[w["window-id"]] = i end
+
+    table.sort(windows, function(a, b)
+        local pa = pos[a["window-id"]]
+        local pb = pos[b["window-id"]]
+        if not pa and not pb then
+            return (orig_idx[a["window-id"]] or 0) < (orig_idx[b["window-id"]] or 0)
+        end
+        if not pa then return false end  -- unknown after known
+        if not pb then return true  end  -- known before unknown
+        local dx = pa.x - pb.x
+        if math.abs(dx) > X_TOLERANCE then return dx < 0 end
+        if pa.y ~= pb.y then return pa.y < pb.y end
+        -- Same column and same row (e.g. accordion members): preserve AeroSpace tree order
+        return (orig_idx[a["window-id"]] or 0) < (orig_idx[b["window-id"]] or 0)
+    end)
+end
+
+-- Sort `windows` in-place using the last known spatial order for `space_name`.
+-- Windows not yet in the cache (opened while the workspace was invisible)
+-- are appended in their original list order.
+local function applyCachedOrder(space_name, windows)
+    local order = window_order_by_workspace[space_name]
+    if not order or #order == 0 then return end
+
+    local rank     = {}
+    for i, wid in ipairs(order) do rank[wid] = i end
+
+    local max_rank = #order + 1
+    local orig_idx = {}
+    for i, w in ipairs(windows) do orig_idx[w["window-id"]] = i end
+
+    table.sort(windows, function(a, b)
+        local wa = a["window-id"]
+        local wb = b["window-id"]
+        local ra = rank[wa] or (max_rank + (orig_idx[wa] or 0))
+        local rb = rank[wb] or (max_rank + (orig_idx[wb] or 0))
+        return ra < rb
+    end)
+end
+
 -- Query AeroSpace for the window list of a workspace and reconcile items.
-local function updateSpaceWindows(spaceId)
+-- If the workspace is currently visible on a monitor, also query real pixel
+-- positions to sort the pill in reading order (left→right, top→bottom) and
+-- cache that order for later use when the workspace is hidden.
+-- If the workspace is hidden, the last cached order is applied instead.
+--
+-- Optional `shared_pos`: pre-fetched position table (from queryWindowPositions).
+-- When provided, the internal queryWindowPositions call is skipped — callers
+-- that update multiple visible workspaces at once (e.g. space_layout_change)
+-- should pass the same snapshot to all workspaces to avoid N redundant processes.
+local function updateSpaceWindows(spaceId, shared_pos)
     local ws = workspaces[spaceId]
     if not ws then return end
-    aerospace:list_windows(ws.space_name, function(windows)
+    local space_name = ws.space_name
+
+    -- Bump serial so any in-flight async chains for this workspace abort.
+    update_serial[space_name] = (update_serial[space_name] or 0) + 1
+    local my_serial = update_serial[space_name]
+
+    aerospace:list_windows(space_name, function(windows)
         if not workspaces[spaceId] then return end
-        sbar.animate("tanh", 10, function()
-            reconcileAppItems(spaceId, windows)
-        end)
+        if update_serial[space_name] ~= my_serial then return end  -- superseded
+
+        if visible_by_workspace[space_name] then
+            -- Inner helper: apply a position snapshot and reconcile.
+            local function applyPositions(pos)
+                if not workspaces[spaceId] then return end
+                if update_serial[space_name] ~= my_serial then return end  -- superseded
+                sortWindowsSpatially(windows, pos)
+                local ordered_ids = {}
+                for _, w in ipairs(windows) do
+                    table.insert(ordered_ids, w["window-id"])
+                end
+                window_order_by_workspace[space_name] = ordered_ids
+                sbar.animate("tanh", 10, function()
+                    reconcileAppItems(spaceId, windows)
+                end)
+            end
+
+            if shared_pos then
+                -- Caller already has a snapshot — use it directly (no subprocess).
+                applyPositions(shared_pos)
+            else
+                queryWindowPositions(applyPositions)
+            end
+        else
+            applyCachedOrder(space_name, windows)
+            sbar.animate("tanh", 10, function()
+                reconcileAppItems(spaceId, windows)
+            end)
+        end
     end)
 end
 
@@ -327,7 +459,7 @@ function seedFocusedWindow(cb)
                     focused_window_by_workspace[ws_name] = wid
                 end
             end
-            if cb then cb() end
+            if cb then cb(ws_name) end  -- pass live ws_name to callback
         end)
     end)
 end
@@ -340,14 +472,23 @@ end
 local function syncWorkspaceList()
     aerospace:list_workspaces_all(function(allWorkspaces)
         local current_spaces = {}
-        local added = false
+        local added          = false
+        local became_visible = {}  -- spaceIds that just transitioned hidden → visible
 
         for _, ws_info in ipairs(allWorkspaces) do
             local space_name = ws_info.workspace
             local spaceId    = "aerospace.space_" .. space_name
+            local is_visible = (ws_info["workspace-is-visible"] == true)
+
+            local was_visible = visible_by_workspace[space_name]
+            visible_by_workspace[space_name] = is_visible
+
             if not workspaces[spaceId] then
                 createWorkspace(space_name, (space_name == focused_workspace), true)
                 added = true
+            elseif is_visible and not was_visible then
+                -- Workspace just appeared on a monitor → re-measure with real coords
+                table.insert(became_visible, spaceId)
             end
             current_spaces[spaceId] = true
         end
@@ -362,6 +503,10 @@ local function syncWorkspaceList()
 
         if added and not removed then
             reorderWorkspaces()
+        end
+
+        for _, spaceId in ipairs(became_visible) do
+            if workspaces[spaceId] then updateSpaceWindows(spaceId) end
         end
     end)
 end
@@ -387,9 +532,29 @@ end)
 -- Window focus changed: re-seed and re-colour.
 -- space_windows_change is handled per-item (each workspace reconciles itself).
 workspace_watcher:subscribe({"aerospace_focus_change", "front_app_switched"}, function()
-    seedFocusedWindow(function()
+    seedFocusedWindow(function(ws_name)
         for spaceId, _ in pairs(workspaces) do
             recolorAppItems(spaceId)
+        end
+        -- Use the live workspace name from seedFocusedWindow (more reliable than
+        -- the globally-cached focused_workspace during rapid workspace transitions).
+        local target = (ws_name ~= "" and ws_name) or focused_workspace
+        local fsid   = "aerospace.space_" .. target
+        if workspaces[fsid] then updateSpaceWindows(fsid) end
+    end)
+end)
+
+-- Window positions changed (detected by layout_change_watcher polling CGWindowList).
+-- Re-sort all visible workspaces so accordion/tile reorders are picked up immediately
+-- without needing a focus change.
+-- One shared window_positions snapshot is fetched and reused by all visible workspaces
+-- to avoid N redundant subprocesses and ensure a consistent spatial ordering.
+workspace_watcher:subscribe("space_layout_change", function()
+    queryWindowPositions(function(pos)
+        for spaceId, ws in pairs(workspaces) do
+            if visible_by_workspace[ws.space_name] then
+                updateSpaceWindows(spaceId, pos)
+            end
         end
     end)
 end)
