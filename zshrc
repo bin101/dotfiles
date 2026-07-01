@@ -11,6 +11,7 @@ export PATH
 
 # zsh base dir
 export ZSH_BASE=$HOME/.zsh
+export ZSH_CACHE_DIR="$HOME/.cache/zsh"
 
 # Optional startup profiling: run `ZSH_PROFILE=1 zsh -i -c exit`
 if [[ "${ZSH_PROFILE:-0}" == "1" ]]; then
@@ -88,14 +89,6 @@ setopt INC_APPEND_HISTORY
 setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_SAVE_NO_DUPS
 setopt HIST_FIND_NO_DUPS
-
-# completions: use cache to speed up cold starts
-autoload -Uz compinit
-if [[ -f ~/.zcompdump ]]; then
-  compinit -C
-else
-  compinit
-fi
 
 # pipx completion (lazy: only load on first pipx invocation)
 if command -v register-python-argcomplete >/dev/null 2>&1; then

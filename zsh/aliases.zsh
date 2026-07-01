@@ -38,3 +38,4 @@ alias switchgpgkey="gpg-connect-agent 'scd serialno' 'learn --force' /bye"
 alias ranger=". ranger"
 alias restartaudio="sudo launchctl kickstart -k system/com.apple.audio.coreaudiod"
 alias disable-autoboot="sudo nvram BootPreference=%00"
+alias decrypt='pbpaste | gpg --decrypt --quiet'
