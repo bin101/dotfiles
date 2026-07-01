@@ -151,10 +151,24 @@ on-mode-changed = []
 
 
 [workspace-to-monitor-force-assignment]
-    1  = ['main', 'built-in']
-    2 = ['main', 'built-in']
-    3  = ['built-in']
-    4 = ['built-in']
+    1  = [
+        'TYPEC',
+        'MB169CK',
+        'MB169BK',
+        'DELL S2721QSA',
+        'main'
+    ]
+    2 = [
+        'main',
+        'DELL S2721QS'
+    ]
+    3  = [
+        'built-in'
+    ]
+    4 = [
+        'main',
+        'built-in'
+    ]
 
 
 # floating rules
@@ -167,24 +181,41 @@ on-mode-changed = []
     run = ['layout floating']
 
 [[on-window-detected]]
-    if.app-id = 'com.microsoft.rdc.macos'
-    if.window-title-regex-substring = '192'
+    if.app-name-regex-substring = 'unarchiver'
     run = ['layout floating']
 
 [[on-window-detected]]
-    if.app-name-regex-substring = 'unarchiver'
+    if.app-id = 'com.google.Chrome'
+    if.window-title-regex-substring = 'bitwarden'
+    run = ['layout floating']
+
+[[on-window-detected]]
+    if.app-id = 'com.bitwarden.desktop'
+    run = ['layout floating']
+
+[[on-window-detected]]
+    if.app-id = 'com.apple.TextEdit'
     run = ['layout floating']
     
 
 # programm workspace rules
-## web
+## 1
 [[on-window-detected]]
     if.app-name-regex-substring = 'chrome'
     run = ['move-node-to-workspace 1']
 
-## media
+[[on-window-detected]]
+    if.app-name-regex-substring = 'outlook'
+    if.window-title-regex-substring = 'reminder'
+    run = ['move-node-to-workspace 1']
+
+## 2
 [[on-window-detected]]
     if.app-name-regex-substring = 'code'
+    run = ['move-node-to-workspace 2']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'intellij'
     run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
@@ -196,19 +227,10 @@ on-mode-changed = []
     run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
-    if.app-name-regex-substring = 'jellyfin desktop'
+    if.app-name-regex-substring = 'jellyfin'
     run = ['move-node-to-workspace 2']
 
-## mail
-[[on-window-detected]]
-    if.app-name-regex-substring = 'mail'
-    run = ['move-node-to-workspace 4']
-
-[[on-window-detected]]
-    if.app-name-regex-substring = 'calendar'
-    run = ['move-node-to-workspace 4']
-
-## social
+## 3
 [[on-window-detected]]
     if.app-name-regex-substring = 'slack'
     run = ['move-node-to-workspace 3']
@@ -224,3 +246,16 @@ on-mode-changed = []
 [[on-window-detected]]
     if.app-name-regex-substring = 'teams'
     run = ['move-node-to-workspace 3']
+
+## 4
+[[on-window-detected]]
+    if.app-name-regex-substring = 'mail'
+    run = ['move-node-to-workspace 4']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'outlook'
+    run = ['move-node-to-workspace 4']
+
+[[on-window-detected]]
+    if.app-name-regex-substring = 'calendar'
+    run = ['move-node-to-workspace 4']
