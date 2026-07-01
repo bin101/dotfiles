@@ -114,6 +114,10 @@ int main(void) {
                          "--trigger aerospace_workspace_change FOCUSED_WORKSPACE='%s'", ws);
                 sketchybar(msg);
             }
+            // Always signal a focus change so the currently focused window can be
+            // re-highlighted, including focus moves between windows of the same app
+            // (which front_app_switched does not report).
+            sketchybar("--trigger aerospace_focus_change");
 
         } else if (strcmp(event, "mode-changed") == 0) {
             char mode[64] = {0};

@@ -168,7 +168,7 @@ function Aerospace:list_windows(space, cb)
 end
 
 function Aerospace:list_window_focused(cb)
-	return passthrough(self, { "list-windows", "--focused", "--json" }, false, cb)
+	return passthrough(self, { "list-windows", "--focused", "--json" }, true, cb)
 end
 
 function Aerospace:workspace(ws)
