@@ -1,10 +1,12 @@
 local colors     = require("colors")
 local settings   = require("settings")
 local app_icons  = require("helpers.app_icons")
-local json       = require("dkjson")
 local aerospace  = sbar.aerospace
 local workspaces = {}
 local icon_cache = {}
+
+-- Launch the AeroSpace socket event provider (fires workspace/mode/window events)
+sbar.exec("killall aerospace_events >/dev/null 2>&1; $CONFIG_DIR/helpers/event_providers/aerospace_events/bin/aerospace_events", function() end)
 
 -- Initial padding item
 sbar.add("item", "aerospace.padding", { position = "left", width = settings.group_paddings })
@@ -26,9 +28,8 @@ end
 
 local function updateSpaceWindows(space, space_name, spaceId)
     if not workspaces[spaceId] then return end
-    aerospace:list_windows(space_name, function(windows_json)
+    aerospace:list_windows(space_name, function(windows)
         if not workspaces[spaceId] then return end
-        local windows = json.decode(windows_json)
         local hasApps = windows and #windows > 0
         local icon_line = ""
 
@@ -212,7 +213,47 @@ workspace_watcher:subscribe("aerospace_workspace_change", function()
 end)
 
 workspace_watcher:subscribe("space_windows_change", function()
-  updateWorkspaces()
+    for spaceId, ws in pairs(workspaces) do
+        local space_name = spaceId:match("aerospace%.space_(.+)")
+        if space_name then
+            updateSpaceWindows(ws.item, space_name, spaceId)
+        end
+    end
+end)
+
+-- Mode indicator (hidden in main mode, visible in resize/other modes)
+local mode_indicator = sbar.add("item", "aerospace.mode", {
+    position = "left",
+    drawing = false,
+    icon = { drawing = false },
+    label = {
+        string = "MODE",
+        color = colors.red,
+        font = {
+            family = settings.font.text,
+            style = settings.font.style_map["Bold"],
+            size = 11.0,
+        },
+        padding_left = 8,
+        padding_right = 8,
+    },
+    background = {
+        color = colors.bg1,
+        border_width = 1,
+        border_color = colors.red,
+        height = 26,
+    },
+    padding_left = 1,
+    padding_right = settings.group_paddings,
+})
+
+mode_indicator:subscribe("aerospace_mode_change", function(env)
+    local mode = env.AEROSPACE_MODE or ""
+    local is_main = (mode == "main" or mode == "")
+    mode_indicator:set({
+        drawing = not is_main,
+        label = { string = mode:upper() },
+    })
 end)
 
 -- Initial workspace setup

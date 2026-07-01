@@ -18,10 +18,8 @@ after-startup-command = []
 # Start AeroSpace at login
 start-at-login = true
 
-# Notify Sketchybar about workspace change
-exec-on-workspace-change = ['/bin/bash', '-c',
-    'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
-]
+# Workspace/mode/window events are fired by the aerospace_events socket provider in SketchyBar
+exec-on-workspace-change = []
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
@@ -125,10 +123,10 @@ on-mode-changed = []
     alt-3 = 'workspace 3'
     alt-4 = 'workspace 4'
 
-    alt-shift-1 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 1 && sketchybar --trigger space_windows_change'
-    alt-shift-2 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 2 && sketchybar --trigger space_windows_change'
-    alt-shift-3 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 3 && sketchybar --trigger space_windows_change'
-    alt-shift-4 = 'exec-and-forget aerospace move-node-to-workspace --focus-follows-window 4 && sketchybar --trigger space_windows_change'
+    alt-shift-1 = 'move-node-to-workspace --focus-follows-window 1'
+    alt-shift-2 = 'move-node-to-workspace --focus-follows-window 2'
+    alt-shift-3 = 'move-node-to-workspace --focus-follows-window 3'
+    alt-shift-4 = 'move-node-to-workspace --focus-follows-window 4'
 
     alt-x = 'workspace-back-and-forth'
     alt-space = 'layout floating tiling'
