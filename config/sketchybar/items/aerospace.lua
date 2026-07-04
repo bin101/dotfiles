@@ -250,7 +250,8 @@ end
 
 -- Accordion peek offsets are 0/P/2P, so members of the same accordion are at
 -- most 2*P apart on either axis.
-local ACCORDION_CLUSTER_DIST = 2 * readAccordionPadding() + X_TOLERANCE
+local accordion_padding      = readAccordionPadding()
+local ACCORDION_CLUSTER_DIST = 2 * accordion_padding + X_TOLERANCE
 
 -- Call the window_positions helper and parse its output into a lookup table.
 -- cb receives pos[window_id] = { x = N, y = N }.
@@ -284,7 +285,7 @@ end
 -- Within a tie (same cluster / overlapping), cached_order provides stability;
 -- exact 2-member accordion clusters use raw geometry which is unambiguous.
 -- Windows whose id is absent from `pos` preserve their relative list order at the end.
-local function sortWindowsSpatially(windows, pos, cached_order)
+local function sortWindowsSpatially(windows, pos, cached_order, focused_wid)
     local orig_idx = {}
     for i, w in ipairs(windows) do orig_idx[w["window-id"]] = i end
 
@@ -351,6 +352,46 @@ local function sortWindowsSpatially(windows, pos, cached_order)
         cluster_anchor[cid] = { x = min_x, y = min_y }
     end
 
+    -- Decode the accordion layout math per cluster (3+ members whose focused
+    -- window is known): offsets relative to the cluster origin are 0 for the
+    -- first window and the one just before the focused, 2P for the one just
+    -- after the focused, and P for everything else. Grouping members around
+    -- the focused window this way recovers the exact tree order for 3-window
+    -- accordions in most focus positions; remaining ties fall back to the
+    -- cached order below. (Known limit: for 4+ windows with focus near the
+    -- end, P-offset members before the focused window are grouped after it.)
+    local group_rank = {}
+    for cid, members in pairs(cluster_members) do
+        local has_focused = false
+        for _, mwid in ipairs(members) do
+            if mwid == focused_wid then has_focused = true; break end
+        end
+        if #members >= 3 and has_focused then
+            -- v_accordion offsets are vertical, h_accordion horizontal
+            local vertical = false
+            for _, w in ipairs(windows) do
+                if w["window-id"] == members[1] then
+                    vertical = (w["window-parent-container-layout"] == "v_accordion")
+                    break
+                end
+            end
+            local anchor = cluster_anchor[cid]
+            for _, mwid in ipairs(members) do
+                local p = pos[mwid]
+                local o = vertical and (p.y - anchor.y) or (p.x - anchor.x)
+                if mwid == focused_wid then
+                    group_rank[mwid] = 1
+                elseif o <= X_TOLERANCE then
+                    group_rank[mwid] = 0  -- before the focused window
+                elseif math.abs(o - 2 * accordion_padding) <= X_TOLERANCE then
+                    group_rank[mwid] = 2  -- immediately after the focused window
+                else
+                    group_rank[mwid] = 3  -- further right of the focused window (or unknown)
+                end
+            end
+        end
+    end
+
     -- Effective position: accordion windows use their cluster anchor; others use real pos.
     local function eff(wid)
         local cid = cluster_id[wid]
@@ -381,6 +422,11 @@ local function sortWindowsSpatially(windows, pos, cached_order)
             if math.abs(rpa.x - rpb.x) > X_TOLERANCE then return rpa.x < rpb.x end
             if rpa.y ~= rpb.y then return rpa.y < rpb.y end
             return (orig_idx[wida] or 0) < (orig_idx[widb] or 0)
+        end
+        if ca and ca == cb_id then
+            local ga = group_rank[wida]
+            local gb = group_rank[widb]
+            if ga and gb and ga ~= gb then return ga < gb end
         end
         -- Fall back to cached order for stability.
         local ra = rank[wida]
@@ -443,7 +489,7 @@ local function updateSpaceWindows(spaceId, shared_pos)
             local function applyPositions(pos)
                 if not workspaces[spaceId] then return end
                 if update_serial[space_name] ~= my_serial then return end  -- superseded
-                sortWindowsSpatially(windows, pos, window_order_by_workspace[space_name])
+                sortWindowsSpatially(windows, pos, window_order_by_workspace[space_name], focused_window_by_workspace[space_name])
                 local ordered_ids = {}
                 for _, w in ipairs(windows) do
                     table.insert(ordered_ids, w["window-id"])
@@ -757,7 +803,8 @@ end)
 -- window lists, highlights and the mode indicator are all rebuilt.
 local function fullResync()
     -- accordion-padding may have changed across an AeroSpace restart
-    ACCORDION_CLUSTER_DIST = 2 * readAccordionPadding() + X_TOLERANCE
+    accordion_padding      = readAccordionPadding()
+    ACCORDION_CLUSTER_DIST = 2 * accordion_padding + X_TOLERANCE
     mode_indicator:set({ drawing = false })  -- server restarts land in "main"
     aerospace:list_workspaces_focused(function(raw_ws)
         focused_workspace = (raw_ws or ""):match("[^\r\n]+") or ""
