@@ -5,10 +5,23 @@ local settings = require("settings")
 
 local cryptovalue = sbar.add("item", "widgets.cryptovalue", {
   position = "right",
-  icon = { drawing = false },
+  background = {
+      color = colors.bg2,
+      border_color = { alpha = 0 },
+      border_width = 1
+  },
+  icon = { 
+    string = "XRP",
+    color = colors.white,
+    padding_left = 8,
+    font = {
+      style = settings.font.style_map["Black"],
+      size = 12.0,
+    },
+  },
   label = { 
-    font = { family = settings.font.numbers },
     string = "Loading...",
+    font = { family = settings.font.numbers },
     color = colors.orange,
     padding_left = 8,
     padding_right= 8,
@@ -33,7 +46,7 @@ local function fetchCryptoValue()
       
       if data and data.ripple and data.ripple.eur then
         local value = data.ripple.eur
-        label = "XRP: " .. value .. "€"
+        label = value .. "€"
         color = colors.green
       else
         label = "Error"

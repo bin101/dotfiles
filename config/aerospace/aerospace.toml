@@ -77,7 +77,7 @@ on-mode-changed = []
     inner.vertical =   20
     outer.left =       20
     outer.bottom =     20
-    outer.top =        [{ monitor."built-in" = 15 }, 50]
+    outer.top =        [{ monitor."built-in" = 5 }, 40]
     outer.right =      20
 
 
