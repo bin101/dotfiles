@@ -97,8 +97,8 @@ function Aerospace.new(path)
 		last_err = res
 		socket_lib.sleep(DEFAULT.RETRY_DELAY)
 	end
-	if not fd then error("could not connect after retries: " .. tostring(last_err)) end
-
+	-- After exhausted retries return an uninitialised instance (fd = nil)
+	-- instead of throwing; _query's self-healing reconnect takes over later.
 	return setmetatable({ sockPath = path, fd = fd }, Aerospace)
 end
 
@@ -114,16 +114,23 @@ function Aerospace:reconnect()
 	self:close(); self.fd = connect(self.sockPath)
 end
 
+-- Single fast reconnect attempt (connect + handshake). Returns true on success.
+function Aerospace:try_reconnect()
+	self:close()
+	local ok, res = pcall(connect, self.sockPath)
+	if ok then self.fd = res end
+	return ok
+end
+
 function Aerospace:is_initialized() return self.fd ~= nil end
 
 -- v0.21 framing: {"args":...,"stdin":"","windowId":null,"workspace":null}
 local PAYLOAD_TMPL = '{"args":%s,"stdin":"","windowId":null,"workspace":null}'
-function Aerospace:_query(args, want_json)
-	if not self:is_initialized() then error(ERR.NOT_INIT) end
 
+-- One send/receive round-trip on the current socket; returns the stdout string.
+-- Throws ERR.SOCKET-prefixed errors on transport failures.
+local function transact(self, frame)
 	-- Send: 4-byte LE length prefix + JSON body
-	local payload = PAYLOAD_TMPL:format(encode(args))
-	local frame   = string.pack("<I4", #payload) .. payload
 	local _, serr = self.fd:send(frame)
 	if serr then error(ERR.SOCKET .. ": " .. serr) end
 
@@ -134,8 +141,34 @@ function Aerospace:_query(args, want_json)
 	if bodylen == 0 then error(ERR.SOCKET .. ": server sent empty response") end
 	local buf = recvn(self.fd, bodylen)
 
-	local out = stdout(buf)
-	return want_json and decode(out) or out
+	return stdout(buf)
+end
+
+function Aerospace:_query(args, want_json)
+	local payload = PAYLOAD_TMPL:format(encode(args))
+	local frame   = string.pack("<I4", #payload) .. payload
+
+	-- Not connected (startup failed or previous transport error): try to heal.
+	if self.fd == nil then
+		if not self:try_reconnect() then error(ERR.NOT_INIT) end
+	end
+
+	local ok, res = pcall(transact, self, frame)
+	if ok then return want_json and decode(res) or res end
+
+	-- Transport error: reconnect once and retry a single time. Other errors
+	-- (JSON / aerospace exit code) mean the link is fine — rethrow immediately.
+	if string.find(tostring(res), ERR.SOCKET, 1, true) then
+		self:close()
+		if self:try_reconnect() then
+			local ok2, res2 = pcall(transact, self, frame)
+			if ok2 then return want_json and decode(res2) or res2 end
+			self:close()
+			error(res2, 0)
+		end
+		self:close()
+	end
+	error(res, 0)
 end
 
 local function passthrough(self, argtbl, as_json, cb)
@@ -164,7 +197,9 @@ function Aerospace:list_workspaces_focused(cb)
 end
 
 function Aerospace:list_windows(space, cb)
-	return passthrough(self, { "list-windows", "--workspace", space, "--json" }, true, cb)
+	return passthrough(self, {
+		"list-windows", "--workspace", space, "--json",
+		"--format", "%{window-id}%{app-name}%{window-parent-container-layout}" }, true, cb)
 end
 
 function Aerospace:list_window_focused(cb)
@@ -173,6 +208,10 @@ end
 
 function Aerospace:workspace(ws)
 	return self:_query({ "workspace", ws }, false)
+end
+
+function Aerospace:config_path(cb)
+	return passthrough(self, { "config", "--config-path" }, false, cb)
 end
 
 function Aerospace:list_windows_all(cb)

@@ -1,7 +1,4 @@
 local aerospace = require("aeroLua").new() -- it finds socket on its own
-while not aerospace:is_initialized() do
-    os.execute("sleep 0.1") -- wait for connection, not the best workaround, i am not a lua professional
-end
 
 -- Require the sketchybar module
 sbar = require("sketchybar")

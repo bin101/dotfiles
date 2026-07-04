@@ -19,11 +19,46 @@ local window_order_by_workspace = {}
 local visible_by_workspace      = {}
 local update_serial             = {}
 
--- Launch the AeroSpace socket event provider (fires workspace/mode/window events)
-sbar.exec("killall aerospace_events >/dev/null 2>&1; $CONFIG_DIR/helpers/event_providers/aerospace_events/bin/aerospace_events", function() end)
+-- ─── event providers (self-restarting) ────────────────────────────────────────
 
--- Launch the window-position watcher (polls CGWindowList, fires space_layout_change)
-sbar.exec("killall layout_change_watcher >/dev/null 2>&1; $CONFIG_DIR/helpers/event_providers/layout_change_watcher/bin/layout_change_watcher", function() end)
+-- Generation counter: every (re)launch bumps it; exit callbacks from older
+-- generations (e.g. our own killall during a restart) are ignored.
+local provider_gen = 0
+local recovering   = false
+
+-- Defined in the connection-watchdog section below; assigned before any exit
+-- callback can fire (exec callbacks are only delivered once the event loop runs).
+local beginRecovery
+
+-- Launch the AeroSpace socket event provider (fires workspace/mode/window events).
+-- Its exit callback is the instant "connection lost" signal: the provider
+-- terminates as soon as the AeroSpace socket closes.
+local function launchAerospaceEvents(gen)
+    sbar.exec("killall aerospace_events >/dev/null 2>&1; $CONFIG_DIR/helpers/event_providers/aerospace_events/bin/aerospace_events", function()
+        if gen ~= provider_gen then return end  -- superseded by a newer launch
+        if beginRecovery then beginRecovery() end
+    end)
+end
+
+-- Launch the window-position watcher (polls CGWindowList, fires space_layout_change).
+-- Independent of the AeroSpace socket; on unexpected exit just relaunch it
+-- after a short delay (avoids a tight crash loop).
+local function launchLayoutWatcher(gen)
+    sbar.exec("killall layout_change_watcher >/dev/null 2>&1; $CONFIG_DIR/helpers/event_providers/layout_change_watcher/bin/layout_change_watcher", function()
+        if gen ~= provider_gen then return end
+        sbar.exec("sleep 1", function()
+            if gen ~= provider_gen then return end
+            launchLayoutWatcher(gen)
+        end)
+    end)
+end
+
+local function startEventProviders()
+    provider_gen = provider_gen + 1
+    launchAerospaceEvents(provider_gen)
+    launchLayoutWatcher(provider_gen)
+end
+startEventProviders()
 
 -- Initial padding item
 sbar.add("item", "aerospace.padding", { position = "left", width = settings.group_paddings })
@@ -153,6 +188,10 @@ local function reconcileAppItems(spaceId, windows)
                 padding_left  = 0,
                 padding_right = 0,
             })
+            app_item:subscribe("mouse.clicked", function()
+                if not workspaces[spaceId] then return end
+                aerospace:workspace(ws.space_name)
+            end)
             ws.app_items[i] = { item = app_item, name = itemName, window_id = window_id }
         end
     end
@@ -183,11 +222,35 @@ end
 
 -- ─── spatial window ordering ──────────────────────────────────────────────────
 
--- Windows must differ by more than this many pixels in X to be considered
+-- Windows must differ by more than this many pixels on an axis to be considered
 -- spatially separate (handles sub-pixel compositor rounding only).
--- Accordion peek offsets are typically 20-50px, so those members ARE sorted
--- by X, not collapsed into a column.
 local X_TOLERANCE = 2
+
+-- AeroSpace's default accordion-padding, used when the config doesn't set one.
+local ACCORDION_PADDING_DEFAULT = 30
+
+-- Read accordion-padding from the loaded aerospace.toml so the cluster distance
+-- tracks config changes without touching this file. `aerospace config --get`
+-- only exposes mode.* keys, so the value is parsed from the config file itself.
+local function readAccordionPadding()
+    local ok, path = pcall(function() return aerospace:config_path() end)
+    if ok and type(path) == "string" then
+        path = path:match("[^\r\n]+")
+        local f = path and io.open(path, "r")
+        if f then
+            for line in f:lines() do
+                local v = line:match("^%s*accordion%-padding%s*=%s*(%d+)")
+                if v then f:close(); return tonumber(v) end
+            end
+            f:close()
+        end
+    end
+    return ACCORDION_PADDING_DEFAULT
+end
+
+-- Accordion peek offsets are 0/P/2P, so members of the same accordion are at
+-- most 2*P apart on either axis.
+local ACCORDION_CLUSTER_DIST = 2 * readAccordionPadding() + X_TOLERANCE
 
 -- Call the window_positions helper and parse its output into a lookup table.
 -- cb receives pos[window_id] = { x = N, y = N }.
@@ -216,24 +279,116 @@ local function queryWindowPositions(cb)
 end
 
 -- Sort `windows` in-place by reading order: left→right (X), then top→bottom (Y).
+-- Accordion members are clustered by proximity (ACCORDION_CLUSTER_DIST) and
+-- sorted by their cluster anchor so peek-offsets don't produce wrong orderings.
+-- Within a tie (same cluster / overlapping), cached_order provides stability;
+-- exact 2-member accordion clusters use raw geometry which is unambiguous.
 -- Windows whose id is absent from `pos` preserve their relative list order at the end.
-local function sortWindowsSpatially(windows, pos)
+local function sortWindowsSpatially(windows, pos, cached_order)
     local orig_idx = {}
     for i, w in ipairs(windows) do orig_idx[w["window-id"]] = i end
 
+    -- Build rank lookup from cached order (nil → empty table)
+    local rank = {}
+    if cached_order then
+        for i, wid in ipairs(cached_order) do rank[wid] = i end
+    end
+
+    -- Identify accordion windows that have a known position
+    local is_accordion = {}
+    for _, w in ipairs(windows) do
+        local layout = w["window-parent-container-layout"]
+        if (layout == "h_accordion" or layout == "v_accordion") and pos[w["window-id"]] then
+            is_accordion[w["window-id"]] = true
+        end
+    end
+
+    -- Greedy cluster assignment: two accordion windows in the same cluster when
+    -- their positions are within ACCORDION_CLUSTER_DIST on both axes (transitively).
+    local cluster_id  = {}   -- wid -> cluster index
+    local cluster_members = {}
+    local next_cluster = 0
+    for _, w in ipairs(windows) do
+        local wid = w["window-id"]
+        if is_accordion[wid] and not cluster_id[wid] then
+            next_cluster = next_cluster + 1
+            cluster_id[wid] = next_cluster
+            cluster_members[next_cluster] = { wid }
+            -- Merge any other unassigned accordion windows that are close enough
+            local changed = true
+            while changed do
+                changed = false
+                for _, w2 in ipairs(windows) do
+                    local wid2 = w2["window-id"]
+                    if is_accordion[wid2] and not cluster_id[wid2] then
+                        local p2 = pos[wid2]
+                        -- Check against all current cluster members
+                        for _, mwid in ipairs(cluster_members[next_cluster]) do
+                            local pm = pos[mwid]
+                            if math.abs(p2.x - pm.x) <= ACCORDION_CLUSTER_DIST
+                               and math.abs(p2.y - pm.y) <= ACCORDION_CLUSTER_DIST then
+                                cluster_id[wid2] = next_cluster
+                                table.insert(cluster_members[next_cluster], wid2)
+                                changed = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Compute cluster anchor: (min x, min y) across all members.
+    local cluster_anchor = {}
+    for cid, members in pairs(cluster_members) do
+        local min_x, min_y = math.huge, math.huge
+        for _, mwid in ipairs(members) do
+            local pm = pos[mwid]
+            if pm.x < min_x then min_x = pm.x end
+            if pm.y < min_y then min_y = pm.y end
+        end
+        cluster_anchor[cid] = { x = min_x, y = min_y }
+    end
+
+    -- Effective position: accordion windows use their cluster anchor; others use real pos.
+    local function eff(wid)
+        local cid = cluster_id[wid]
+        if cid then return cluster_anchor[cid] end
+        return pos[wid]
+    end
+
     table.sort(windows, function(a, b)
-        local pa = pos[a["window-id"]]
-        local pb = pos[b["window-id"]]
+        local wida = a["window-id"]
+        local widb = b["window-id"]
+        local pa = eff(wida)
+        local pb = eff(widb)
         if not pa and not pb then
-            return (orig_idx[a["window-id"]] or 0) < (orig_idx[b["window-id"]] or 0)
+            return (orig_idx[wida] or 0) < (orig_idx[widb] or 0)
         end
         if not pa then return false end  -- unknown after known
         if not pb then return true  end  -- known before unknown
         local dx = pa.x - pb.x
         if math.abs(dx) > X_TOLERANCE then return dx < 0 end
         if pa.y ~= pb.y then return pa.y < pb.y end
-        -- Same column and same row (e.g. accordion members): preserve AeroSpace tree order
-        return (orig_idx[a["window-id"]] or 0) < (orig_idx[b["window-id"]] or 0)
+        -- Tie: same effective position (same accordion cluster or real overlap).
+        local ca = cluster_id[wida]
+        local cb_id = cluster_id[widb]
+        if ca and ca == cb_id and #cluster_members[ca] == 2 then
+            -- Exact 2-member accordion: raw geometry is unambiguous — use it to seed cache.
+            local rpa = pos[wida]
+            local rpb = pos[widb]
+            if math.abs(rpa.x - rpb.x) > X_TOLERANCE then return rpa.x < rpb.x end
+            if rpa.y ~= rpb.y then return rpa.y < rpb.y end
+            return (orig_idx[wida] or 0) < (orig_idx[widb] or 0)
+        end
+        -- Fall back to cached order for stability.
+        local ra = rank[wida]
+        local rb = rank[widb]
+        if ra and rb then return ra < rb end
+        if ra then return true  end  -- ranked before unranked
+        if rb then return false end
+        return (orig_idx[wida] or 0) < (orig_idx[widb] or 0)
     end)
 end
 
@@ -288,7 +443,7 @@ local function updateSpaceWindows(spaceId, shared_pos)
             local function applyPositions(pos)
                 if not workspaces[spaceId] then return end
                 if update_serial[space_name] ~= my_serial then return end  -- superseded
-                sortWindowsSpatially(windows, pos)
+                sortWindowsSpatially(windows, pos, window_order_by_workspace[space_name])
                 local ordered_ids = {}
                 for _, w in ipairs(windows) do
                     table.insert(ordered_ids, w["window-id"])
@@ -595,9 +750,75 @@ mode_indicator:subscribe("aerospace_mode_change", function(env)
     })
 end)
 
+-- ─── connection watchdog ──────────────────────────────────────────────────────
+
+-- Full state resync after the AeroSpace connection was re-established.
+-- Events were lost while the server was away, so focus, workspace list,
+-- window lists, highlights and the mode indicator are all rebuilt.
+local function fullResync()
+    -- accordion-padding may have changed across an AeroSpace restart
+    ACCORDION_CLUSTER_DIST = 2 * readAccordionPadding() + X_TOLERANCE
+    mode_indicator:set({ drawing = false })  -- server restarts land in "main"
+    aerospace:list_workspaces_focused(function(raw_ws)
+        focused_workspace = (raw_ws or ""):match("[^\r\n]+") or ""
+        syncWorkspaceList()
+        seedFocusedWindow(function()
+            for spaceId, ws in pairs(workspaces) do
+                local isFocused = (ws.space_name == focused_workspace)
+                ws.item:set({ icon = { highlight = isFocused } })
+                space_bracket_update(spaceId, isFocused)
+                recolorAppItems(spaceId)
+                updateSpaceWindows(spaceId)
+            end
+        end)
+    end)
+end
+
+-- Fast recovery loop, triggered instantly by the provider's exit callback.
+-- Pings AeroSpace with exponential backoff (0.2s → 5s cap); _query's
+-- self-healing re-establishes the Lua socket on the first successful ping,
+-- then providers are relaunched and the full state resync runs.
+beginRecovery = function()
+    if recovering then return end
+    recovering = true
+    local function attempt(delay)
+        sbar.exec("sleep " .. delay, function()
+            local ok = pcall(function() return aerospace:list_workspaces_focused() end)
+            if ok then
+                recovering = false
+                startEventProviders()
+                fullResync()
+            else
+                attempt(math.min(delay * 2, 5))
+            end
+        end)
+    end
+    attempt(0.2)
+end
+
+-- Fallback watchdog: the provider exit callbacks above are the primary
+-- "connection lost" signal; this routine only catches lost callback chains.
+local watchdog = sbar.add("item", "aerospace.watchdog", {
+    drawing     = false,
+    updates     = true,
+    update_freq = 10,
+})
+
+watchdog:subscribe("routine", function()
+    if recovering then return end
+    sbar.exec("pgrep -x aerospace_events >/dev/null && echo up || echo down", function(out)
+        if recovering then return end
+        if (out or ""):match("down") then beginRecovery() end
+    end)
+end)
+
 -- ─── initial setup ────────────────────────────────────────────────────────────
 
--- Seed focus state before building workspaces so initial colours are correct
-seedFocusedWindow(function()
-    initWorkspaces()
+-- Seed focus state before building workspaces so initial colours are correct.
+-- If AeroSpace is down at startup, start the recovery loop right away.
+local ok = pcall(function()
+    seedFocusedWindow(function()
+        initWorkspaces()
+    end)
 end)
+if not ok then beginRecovery() end
