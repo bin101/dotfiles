@@ -254,7 +254,7 @@ local accordion_padding      = readAccordionPadding()
 local ACCORDION_CLUSTER_DIST = 2 * accordion_padding + X_TOLERANCE
 
 -- Call the window_positions helper and parse its output into a lookup table.
--- cb receives pos[window_id] = { x = N, y = N }.
+-- cb receives pos[window_id] = { x = N, y = N, w = N, h = N }.
 -- Off-screen/parked windows (macOS sentinel at -9999, -9999) are omitted so
 -- they fall into the "unknown → append at end" path instead of sorting to the left.
 local function queryWindowPositions(cb)
@@ -262,7 +262,7 @@ local function queryWindowPositions(cb)
         local pos = {}
         if output then
             for line in output:gmatch("[^\n]+") do
-                local wid_s, x_s, y_s = line:match("^(%d+)%s+(-?%d+)%s+(-?%d+)")
+                local wid_s, x_s, y_s, w_s, h_s = line:match("^(%d+)%s+(-?%d+)%s+(-?%d+)%s+(%d+)%s+(%d+)")
                 if wid_s then
                     local x = tonumber(x_s)
                     local y = tonumber(y_s)
@@ -270,7 +270,7 @@ local function queryWindowPositions(cb)
                     -- unrealistic coordinates (< -9000). Legitimate multi-monitor
                     -- negative X values don't reach this threshold.
                     if x > -9000 and y > -9000 then
-                        pos[tonumber(wid_s)] = { x = x, y = y }
+                        pos[tonumber(wid_s)] = { x = x, y = y, w = tonumber(w_s), h = tonumber(h_s) }
                     end
                 end
             end
@@ -282,8 +282,9 @@ end
 -- Sort `windows` in-place by reading order: left→right (X), then top→bottom (Y).
 -- Accordion members are clustered by proximity (ACCORDION_CLUSTER_DIST) and
 -- sorted by their cluster anchor so peek-offsets don't produce wrong orderings.
--- Within a tie (same cluster / overlapping), cached_order provides stability;
--- exact 2-member accordion clusters use raw geometry which is unambiguous.
+-- Within a cluster the tree order is reconstructed from the frame classes of
+-- the accordion layout math (offset + far edge identify first/prev/next/last);
+-- residual ambiguity and non-cluster ties fall back to cached_order.
 -- Windows whose id is absent from `pos` preserve their relative list order at the end.
 local function sortWindowsSpatially(windows, pos, cached_order, focused_wid)
     local orig_idx = {}
@@ -352,44 +353,119 @@ local function sortWindowsSpatially(windows, pos, cached_order, focused_wid)
         cluster_anchor[cid] = { x = min_x, y = min_y }
     end
 
-    -- Decode the accordion layout math per cluster (3+ members whose focused
-    -- window is known): offsets relative to the cluster origin are 0 for the
-    -- first window and the one just before the focused, 2P for the one just
-    -- after the focused, and P for everything else. Grouping members around
-    -- the focused window this way recovers the exact tree order for 3-window
-    -- accordions in most focus positions; remaining ties fall back to the
-    -- cached order below. (Known limit: for 4+ windows with focus near the
-    -- end, P-offset members before the focused window are grouped after it.)
-    local group_rank = {}
+    -- Reconstruct the tree order of each accordion cluster from the frame
+    -- classes of the accordion layout math (see comment above): left edge o
+    -- and right edge e = o + size relative to the cluster extent identify the
+    -- first window, the direct neighbours of the focused window and the last
+    -- window exactly; remaining mid-field windows are placed into the gap(s)
+    -- using the cached order. Result: cluster_seq[wid] = position within the
+    -- cluster. Exact for accordions of up to 4 windows in any focus position.
+    local cluster_seq = {}
     for cid, members in pairs(cluster_members) do
+        local anchor = cluster_anchor[cid]
+        -- axis: v_accordion offsets are vertical, h_accordion horizontal
+        local vertical = false
+        for _, w in ipairs(windows) do
+            if w["window-id"] == members[1] then
+                vertical = (w["window-parent-container-layout"] == "v_accordion")
+                break
+            end
+        end
+        -- offsets and far edges along the accordion axis
+        local off, edge = {}, {}
+        local extent, have_size = 0, true
+        for _, mwid in ipairs(members) do
+            local p = pos[mwid]
+            local size = vertical and p.h or p.w
+            if not size then have_size = false break end
+            local o = vertical and (p.y - anchor.y) or (p.x - anchor.x)
+            off[mwid]  = o
+            edge[mwid] = o + size
+            if edge[mwid] > extent then extent = edge[mwid] end
+        end
+
+        local P = accordion_padding
+        local function near(a, b) return math.abs(a - b) < P / 2 end
+        local function cacheCmp(a, b)
+            local ra, rb = rank[a], rank[b]
+            if ra and rb then return ra < rb end
+            if ra then return true end
+            if rb then return false end
+            return (orig_idx[a] or 0) < (orig_idx[b] or 0)
+        end
+
+        local first, prev, nxt, last, mids = nil, nil, nil, nil, {}
+        local ok = have_size and #members >= 2
+        if ok then
+            for _, mwid in ipairs(members) do
+                if mwid ~= focused_wid then
+                    local o, e = off[mwid], edge[mwid]
+                    if near(o, 0) and near(e, extent - P) then
+                        if first then ok = false break end
+                        first = mwid
+                    elseif near(o, 0) and near(e, extent - 2 * P) then
+                        if prev then ok = false break end
+                        prev = mwid
+                    elseif near(o, 2 * P) then
+                        if nxt then ok = false break end
+                        nxt = mwid
+                    elseif near(o, P) and near(e, extent) then
+                        if last then ok = false break end
+                        last = mwid
+                    else
+                        table.insert(mids, mwid)  -- mid-field or unclassifiable
+                    end
+                end
+            end
+        end
+
+        local ordered = {}
         local has_focused = false
         for _, mwid in ipairs(members) do
-            if mwid == focused_wid then has_focused = true; break end
+            if mwid == focused_wid then has_focused = true break end
         end
-        if #members >= 3 and has_focused then
-            -- v_accordion offsets are vertical, h_accordion horizontal
-            local vertical = false
-            for _, w in ipairs(windows) do
-                if w["window-id"] == members[1] then
-                    vertical = (w["window-parent-container-layout"] == "v_accordion")
-                    break
-                end
-            end
-            local anchor = cluster_anchor[cid]
-            for _, mwid in ipairs(members) do
-                local p = pos[mwid]
-                local o = vertical and (p.y - anchor.y) or (p.x - anchor.x)
-                if mwid == focused_wid then
-                    group_rank[mwid] = 1
-                elseif o <= X_TOLERANCE then
-                    group_rank[mwid] = 0  -- before the focused window
-                elseif math.abs(o - 2 * accordion_padding) <= X_TOLERANCE then
-                    group_rank[mwid] = 2  -- immediately after the focused window
+        if ok and has_focused then
+            -- gap before the focused window exists only when PREV exists
+            -- (otherwise idx0 is adjacent to the focused window); the gap
+            -- after it only when LAST exists (otherwise focused is last).
+            local before_mids, after_mids = {}, {}
+            for _, mwid in ipairs(mids) do
+                if prev and last then
+                    -- both gaps possible: side decided by the cached order
+                    local rm, rf = rank[mwid], rank[focused_wid]
+                    if rm and rf and rm < rf then
+                        table.insert(before_mids, mwid)
+                    else
+                        table.insert(after_mids, mwid)
+                    end
+                elseif prev then
+                    table.insert(before_mids, mwid)
                 else
-                    group_rank[mwid] = 3  -- further right of the focused window (or unknown)
+                    table.insert(after_mids, mwid)
                 end
             end
+            table.sort(before_mids, cacheCmp)
+            table.sort(after_mids, cacheCmp)
+
+            if first then table.insert(ordered, first) end
+            for _, m in ipairs(before_mids) do table.insert(ordered, m) end
+            if prev then table.insert(ordered, prev) end
+            table.insert(ordered, focused_wid)
+            if nxt then table.insert(ordered, nxt) end
+            for _, m in ipairs(after_mids) do table.insert(ordered, m) end
+            if last then table.insert(ordered, last) end
+        else
+            -- Fallback (focused unknown, missing sizes or contradictory
+            -- classes, e.g. cell-snapping terminals): sort by raw offset,
+            -- then cached order. Exact for 2-member accordions.
+            for _, mwid in ipairs(members) do table.insert(ordered, mwid) end
+            table.sort(ordered, function(a, b)
+                local oa, ob = off[a] or 0, off[b] or 0
+                if math.abs(oa - ob) > X_TOLERANCE then return oa < ob end
+                return cacheCmp(a, b)
+            end)
         end
+        for i, mwid in ipairs(ordered) do cluster_seq[mwid] = i end
     end
 
     -- Effective position: accordion windows use their cluster anchor; others use real pos.
@@ -412,21 +488,11 @@ local function sortWindowsSpatially(windows, pos, cached_order, focused_wid)
         local dx = pa.x - pb.x
         if math.abs(dx) > X_TOLERANCE then return dx < 0 end
         if pa.y ~= pb.y then return pa.y < pb.y end
-        -- Tie: same effective position (same accordion cluster or real overlap).
+        -- Same accordion cluster: use the reconstructed tree order.
         local ca = cluster_id[wida]
         local cb_id = cluster_id[widb]
-        if ca and ca == cb_id and #cluster_members[ca] == 2 then
-            -- Exact 2-member accordion: raw geometry is unambiguous — use it to seed cache.
-            local rpa = pos[wida]
-            local rpb = pos[widb]
-            if math.abs(rpa.x - rpb.x) > X_TOLERANCE then return rpa.x < rpb.x end
-            if rpa.y ~= rpb.y then return rpa.y < rpb.y end
-            return (orig_idx[wida] or 0) < (orig_idx[widb] or 0)
-        end
         if ca and ca == cb_id then
-            local ga = group_rank[wida]
-            local gb = group_rank[widb]
-            if ga and gb and ga ~= gb then return ga < gb end
+            return cluster_seq[wida] < cluster_seq[widb]
         end
         -- Fall back to cached order for stability.
         local ra = rank[wida]

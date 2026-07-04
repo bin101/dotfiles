@@ -1,5 +1,5 @@
-// window_positions: print all on-screen window ids and their origin (X Y)
-// Output: one line per window: "<window-id> <x> <y>"
+// window_positions: print all on-screen window ids, their origin and size
+// Output: one line per window: "<window-id> <x> <y> <w> <h>"
 // Uses CGWindowListCopyWindowInfo — no Screen Recording permission required
 // (only window titles are redacted without it; bounds + ids are always available).
 #include <CoreGraphics/CoreGraphics.h>
@@ -27,7 +27,8 @@ int main(void) {
         CGRect rect = CGRectZero;
         if (!CGRectMakeWithDictionaryRepresentation(boundsDict, &rect)) continue;
 
-        printf("%lld %d %d\n", (long long)wid, (int)rect.origin.x, (int)rect.origin.y);
+        printf("%lld %d %d %d %d\n", (long long)wid, (int)rect.origin.x, (int)rect.origin.y,
+               (int)rect.size.width, (int)rect.size.height);
     }
 
     CFRelease(windows);
