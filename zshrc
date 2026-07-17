@@ -112,3 +112,11 @@ export QMK_CONFIG="$HOME/.config/qmk/qmk.ini"
 if [[ "${ZSH_PROFILE:-0}" == "1" ]]; then
   zprof
 fi
+
+# Colima + Testcontainers (ez-push)
+export DOCKER_HOST="unix:///Users/jensvanalmsick/.colima/default/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/var/run/docker.sock"
+
+# Java
+export JAVA_HOME="${HOMEBREW_PREFIX}/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+
