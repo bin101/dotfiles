@@ -116,7 +116,7 @@ local function rebuildBracket(spaceId)
 
     ws.bracket = sbar.add("bracket", spaceId .. ".bracket", members, {
         background = {
-            color        = colors.transparent,
+            color        = colors.bg1,
             border_color = isFocused and colors.grey or colors.bg2,
             height       = 28,
             border_width = 2,

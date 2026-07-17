@@ -5,12 +5,7 @@ local settings = require("settings")
 
 local cryptovalue = sbar.add("item", "widgets.cryptovalue", {
   position = "right",
-  background = {
-      color = colors.bg2,
-      border_color = { alpha = 0 },
-      border_width = 1
-  },
-  icon = { 
+  icon = {
     string = "XRP",
     color = colors.white,
     padding_left = 8,
@@ -23,7 +18,6 @@ local cryptovalue = sbar.add("item", "widgets.cryptovalue", {
     string = "Loading...",
     font = { family = settings.font.numbers },
     color = colors.orange,
-    padding_left = 8,
     padding_right= 8,
   },
   update_freq = 360,
@@ -69,3 +63,14 @@ end
 cryptovalue:subscribe({ "forced", "routine", "system_woke" }, function(env)
     fetchCryptoValue()
 end)
+
+-- Background around the cryptovalue item
+sbar.add("bracket", "widgets.cryptovalue.bracket", { cryptovalue.name }, {
+  background = { color = colors.bg1 }
+})
+
+-- Background around the cryptovalue item
+sbar.add("item", "widgets.cryptovalue.padding", {
+  position = "right",
+  width = settings.group_paddings
+})
