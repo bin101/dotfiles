@@ -1,3 +1,4 @@
+require("items.aerospace_profiles")
 require("items.front_app")
 require("items.aerospace")
 require("items.calendar")

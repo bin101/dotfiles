@@ -1,9 +1,12 @@
 local colors     = require("colors")
 local settings   = require("settings")
 local app_icons  = require("helpers.app_icons")
+local persist    = require("helpers.layout_persist")
 local aerospace  = sbar.aerospace
 local workspaces = {}
 local icon_cache = {}
+
+persist.init(aerospace)
 
 -- Global focus state:
 --   focused_workspace               current focused workspace name
@@ -883,6 +886,13 @@ local function fullResync()
                 recolorAppItems(spaceId)
                 updateSpaceWindows(spaceId)
             end
+            -- Re-apply the active layout profile after an AeroSpace restart.
+            -- Settle first: on-window-detected rules re-run windows through
+            -- their static workspace assignment as AeroSpace comes back up,
+            -- and the profile restore must win over that, not race it.
+            sbar.exec("sleep 1", function()
+                persist.apply(persist.get_active())
+            end)
         end)
     end)
 end
@@ -932,6 +942,22 @@ end)
 local ok = pcall(function()
     seedFocusedWindow(function()
         initWorkspaces()
+
+        -- Auto-apply the active profile on a genuine boot (covers a full
+        -- reboot, where window ids are reassigned and the static
+        -- on-window-detected rules alone can't reproduce a manual layout).
+        -- Guarded by system uptime so a plain `sketchybar --reload` on an
+        -- already-running session never clobbers windows the user just
+        -- arranged by hand — the AeroSpace-restart path above (fullResync)
+        -- covers that case unconditionally instead.
+        sbar.exec("sysctl -n kern.boottime", function(out)
+            local boot_epoch = tonumber((out or ""):match("sec%s*=%s*(%d+)"))
+            if boot_epoch and (os.time() - boot_epoch) < 120 then
+                sbar.exec("sleep 1", function()
+                    persist.apply(persist.get_active())
+                end)
+            end
+        end)
     end)
 end)
 if not ok then beginRecovery() end

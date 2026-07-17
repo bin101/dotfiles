@@ -217,7 +217,7 @@ end
 function Aerospace:list_windows_all(cb)
 	return passthrough(self, {
 		"list-windows", "--all", "--json",
-		"--format", "%{window-id}%{app-name}%{window-title}%{workspace}" }, true, cb)
+		"--format", "%{window-id}%{app-name}%{window-title}%{workspace}%{window-layout}" }, true, cb)
 end
 
 return Aerospace
